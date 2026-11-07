@@ -11,10 +11,18 @@
 </head>
 <body>
   <aside class="sidebar">
-    <a class="brand" href="./" aria-label="PageStudio 首页"><img class="logo" src="./icon.svg" alt=""><span>PageStudio<small>HTML 卡片库</small></span></a>
-    <div class="nav-label">资料库</div>
-    <nav id="categories" aria-label="分类"></nav>
-    <div class="local"><i></i><div>本机资料库<span>文件与索引保存在本机</span></div></div>
+    <div class="sidebar-navigation">
+      <a class="brand" href="./" aria-label="PageStudio 首页"><img class="logo" src="./icon.svg" alt=""><span>PageStudio<small>HTML 卡片库</small></span></a>
+      <div class="nav-label">资料库</div>
+      <nav id="categories" aria-label="分类"></nav>
+    </div>
+    <div class="local">
+      <i aria-hidden="true"></i>
+      <div>
+        本机资料库<span>文件与索引保存在本机</span>
+        <button id="versionButton" class="version-button" type="button" aria-haspopup="dialog">版本与更新</button>
+      </div>
+    </div>
   </aside>
   <main>
     <header class="top"><div class="breadcrumb">资料库 <span>/</span> <b id="location">全部文件</b></div><div class="top-actions"><button class="secondary" id="appearanceButton" type="button" aria-haspopup="dialog">外观</button><button class="secondary" id="discussion" hidden>AI 对话</button><button class="secondary" id="ai">✦　AI 整理</button><button class="primary" id="create">＋ 新建 HTML</button></div></header>
@@ -23,7 +31,6 @@
         <div>
           <div class="eyebrow"><span></span> 本地 HTML 档案</div><h1>PageStudio</h1>
           <p>把报告、笔记和交互页面收在一起，随时找回。</p>
-          <button id="versionButton" class="version-button" type="button">版本与更新</button>
         </div>
         <img class="hero-mark" src="./icon.svg" alt="">
       </section>
