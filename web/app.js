@@ -216,7 +216,8 @@ function showReader(item) {
   exportMessage(exportingId === item.id ? '正在导出图片…' : '');
   $('exportImages').disabled = Boolean(exportingId);
   summaryEditor = { id: item.id, saved: null, conflict: false, loading: false, saving: false };
-  $('summaryText').value = '';
+  fillDetails({ title: '', tags: [], summary: '' });
+  $('summaryCategory').replaceChildren();
   message('summaryStatus', '');
   updateSummaryControls();
   $('readerZoom').textContent = '原始大小';
@@ -260,71 +261,119 @@ $('readerTabs').addEventListener('keydown', event => {
   readerTabs[next[event.key]].focus();
   selectReaderTab(readerTabs[next[event.key]]);
 });
+const detailInputs = ['summaryTitle', 'summaryCategory', 'summaryTags', 'summaryText'];
+function detailsDraft() {
+  const tagText = $('summaryTags').value;
+  const savedTags = summaryEditor?.saved?.tags;
+  const tags = tagText === savedTags?.join('，') ? savedTags :
+    [...new Set(tagText.split(/[，,、]/).map(tag => tag.replace(/\s+/g, ' ').trim()).filter(Boolean))];
+  return {
+    title: $('summaryTitle').value.trim(),
+    category: $('summaryCategory').value,
+    tags,
+    summary: $('summaryText').value.trim(),
+  };
+}
+function sameDetails(a, b) {
+  return a.title === b.title && a.category === b.category && a.summary === b.summary &&
+    a.tags.length === b.tags.length && a.tags.every((tag, index) => tag === b.tags[index]);
+}
+function fillDetails(details) {
+  $('summaryTitle').value = details.title;
+  if (details.category) $('summaryCategory').value = details.category;
+  $('summaryTags').value = details.tags.join('，');
+  $('summaryText').value = details.summary;
+}
+function useSavedDetails(editor, saved) {
+  editor.saved = saved;
+  editor.conflict = false;
+  $('summaryCategory').replaceChildren(...saved.categories.map(name => new Option(name, name)));
+  fillDetails(saved);
+  $('readerTitle').textContent = saved.title;
+  readerItem = { ...readerItem, title: saved.title, category: saved.category, tags: saved.tags, summary: saved.summary };
+}
 function updateSummaryControls() {
   if (!summaryEditor) return;
   const { saved, conflict, saving } = summaryEditor;
-  const input = $('summaryText');
-  const value = input.value.trim();
-  const count = [...value].length;
-  const dirty = saved && value !== saved.summary;
+  const draft = detailsDraft();
+  const count = [...draft.summary].length;
+  const dirty = Boolean(saved && !sameDetails(draft, saved));
+  const suggestion = saved?.suggestion;
+  const disabled = !saved || saving;
   $('summaryCount').textContent = count + ' / 140 字';
   $('summaryCount').toggleAttribute('data-over', count > 140);
-  input.disabled = !saved || saving;
-  input.setAttribute('aria-invalid', String(count > 140));
-  $('copySummary').disabled = !value || input.disabled;
-  $('pasteSummary').disabled = input.disabled;
-  $('saveSummary').disabled = !dirty || count > 140 || saving || conflict;
-  $('generateSummary').disabled = !saved || saving || conflict || dirty;
-  $('generateSummary').textContent = saved?.summary ? '重新生成摘要' : '生成摘要';
-  $('generateSummary').title = dirty ? '先保存当前编辑' : '在 AI 侧栏发送生成请求';
+  for (const id of detailInputs) $(id).disabled = disabled;
+  $('summaryText').setAttribute('aria-invalid', String(count > 140));
+  $('copySummary').disabled = !draft.summary || disabled;
+  $('pasteSummary').disabled = disabled;
+  $('saveSummary').disabled = !dirty || !draft.title || count > 140 || saving || conflict;
+  $('generateSummary').disabled = disabled || conflict || dirty;
+  $('generateSummary').title = dirty ? '先保存当前编辑' : '在 AI 侧栏发送整理请求';
   $('reloadSummary').hidden = !conflict;
+  $('cardSuggestion').hidden = !suggestion || conflict;
+  if (suggestion) {
+    $('suggestedTitle').textContent = suggestion.title;
+    $('suggestedCategory').textContent = suggestion.category;
+    $('suggestedTags').textContent = suggestion.tags.join('、') || '无';
+    $('suggestedSummary').textContent = suggestion.summary;
+    $('fillSuggestion').disabled = saving || dirty || sameDetails(saved, suggestion);
+    $('saveSuggestion').disabled = $('fillSuggestion').disabled;
+  }
 }
 async function loadSummary(replace = false) {
   const editor = summaryEditor;
   if (!editor || editor.loading || editor.saving) return;
   editor.loading = true;
-  if (!editor.saved) message('summaryStatus', '正在读取摘要…');
+  if (!editor.saved) message('summaryStatus', '正在读取卡片资料…');
   try {
-    const saved = await request('./api/card/' + editor.id + '/summary');
+    const saved = await request('./api/card/' + editor.id + '/details');
     if (editor !== summaryEditor) return;
     const previous = editor.saved;
-    if (previous && saved.revision < previous.revision) return;
-    if (replace || !previous || saved.revision !== previous.revision) {
-      const input = $('summaryText');
-      editor.conflict = !replace && previous && input.value.trim() !== previous.summary;
+    if (replace || !previous || saved.version !== previous.version) {
+      editor.conflict = Boolean(!replace && previous && !sameDetails(detailsDraft(), previous));
       if (editor.conflict) {
-        message('summaryStatus', '已保存的摘要有更新。当前编辑仍保留，可复制后载入新版。', true);
+        message('summaryStatus', '已保存的卡片资料有更新。当前编辑仍保留，可复制后载入新版。', true);
       } else {
-        editor.saved = saved;
-        input.value = saved.summary;
-        message('summaryStatus', previous ? '已载入最新摘要。' : '');
+        useSavedDetails(editor, saved);
+        message('summaryStatus', previous ? '已载入最新卡片资料。' : '');
       }
-      updateSummaryControls();
+    } else if (JSON.stringify(saved.suggestion) !== JSON.stringify(previous.suggestion)) {
+      editor.saved = saved;
+      if (saved.suggestion && !editor.conflict) message('summaryStatus', 'AI 整理建议已就绪。');
     }
+    updateSummaryControls();
   } catch (error) {
     if (editor === summaryEditor) message('summaryStatus', error.message, true);
   } finally {
     editor.loading = false;
   }
 }
-$('summaryText').addEventListener('input', updateSummaryControls);
+$('summaryForm').addEventListener('input', updateSummaryControls);
 $('reloadSummary').onclick = () => loadSummary(true);
-$('summaryForm').onsubmit = async event => {
+$('summaryForm').onsubmit = event => {
   event.preventDefault();
+  if (!$('saveSummary').disabled) saveDetails(detailsDraft());
+};
+$('fillSuggestion').onclick = () => {
+  fillDetails(summaryEditor.saved.suggestion);
+  updateSummaryControls();
+  $('summaryTitle').focus();
+  message('summaryStatus', '建议已填入，可继续修改并保存。');
+};
+$('saveSuggestion').onclick = () => saveDetails(summaryEditor.saved.suggestion);
+async function saveDetails(draft) {
   const editor = summaryEditor;
-  if (!editor || $('saveSummary').disabled) return;
-  const summary = $('summaryText').value.trim();
+  if (!editor?.saved || editor.saving || editor.conflict) return;
   editor.saving = true;
   updateSummaryControls();
   let stale = false;
   try {
-    const saved = await post('./api/card/' + editor.id + '/summary',
-      JSON.stringify({ summary, revision: editor.saved.revision }), 'application/json');
+    const saved = await post('./api/card/' + editor.id + '/details',
+      JSON.stringify({ ...draft, version: editor.saved.version }), 'application/json');
     refresh();
     if (editor !== summaryEditor) return;
-    editor.saved = saved;
-    $('summaryText').value = saved.summary;
-    message('summaryStatus', '摘要已保存。');
+    useSavedDetails(editor, saved);
+    message('summaryStatus', '卡片资料已保存。');
   } catch (error) {
     if (editor !== summaryEditor) return;
     stale = error.status === 409;
@@ -336,7 +385,7 @@ $('summaryForm').onsubmit = async event => {
       if (stale) loadSummary();
     }
   }
-};
+}
 $('copySummary').onclick = async () => {
   const editor = summaryEditor;
   const input = $('summaryText');
@@ -366,8 +415,8 @@ $('pasteSummary').onclick = async () => {
 };
 $('generateSummary').onclick = () => {
   const { id, saved } = summaryEditor;
-  openDiscussion('summary', id, saved.revision);
-  message('summaryStatus', '已准备生成请求，请在 AI 侧栏发送。');
+  openDiscussion('summary', id, saved.version);
+  message('summaryStatus', '已准备整理请求，请在 AI 侧栏发送。');
 };
 function bodyText(source) {
   // Template content stays inert, including images, embedded pages and scripts.
@@ -591,8 +640,8 @@ $('copy').onclick = async () => {
     message('aiStatus', '已选中指令，请手动复制。');
   }
 };
-function openDiscussion(mode, id, revision) {
-  window.parent.postMessage({ channel: chatChannel, type: 'open', mode, id, revision }, window.location.origin === 'null' ? '*' : window.location.origin);
+function openDiscussion(mode, id, version) {
+  window.parent.postMessage({ channel: chatChannel, type: 'open', mode, id, version }, window.location.origin === 'null' ? '*' : window.location.origin);
 }
 function updateHost(type, data) {
   window.parent.postMessage({ channel: chatChannel, type, ...data }, window.location.origin === 'null' ? '*' : window.location.origin);

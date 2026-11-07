@@ -126,6 +126,28 @@
     <div id="textPanel" class="reader-panel reader-content" role="tabpanel" aria-labelledby="textTab" tabindex="0" hidden><div id="readerText"></div></div>
     <div id="summaryPanel" class="reader-panel reader-content" role="tabpanel" aria-labelledby="summaryTab" hidden>
       <form id="summaryForm" class="summary-form">
+        <div class="summary-heading">
+          <h3>卡片资料</h3>
+          <button type="button" class="secondary" id="generateSummary" hidden>AI 生成整理建议</button>
+        </div>
+        <section id="cardSuggestion" class="card-suggestion" aria-labelledby="suggestionTitle" hidden>
+          <h4 id="suggestionTitle">AI 整理建议</h4>
+          <dl>
+            <dt>标题</dt><dd id="suggestedTitle"></dd>
+            <dt>分类</dt><dd id="suggestedCategory"></dd>
+            <dt>标签</dt><dd id="suggestedTags"></dd>
+            <dt>摘要</dt><dd id="suggestedSummary"></dd>
+          </dl>
+          <div class="summary-actions">
+            <button type="button" class="secondary" id="fillSuggestion">填入编辑区</button>
+            <button type="button" class="primary" id="saveSuggestion">采用建议并保存</button>
+          </div>
+        </section>
+        <div class="summary-fields">
+          <label>卡片标题<input id="summaryTitle" maxlength="200" required></label>
+          <label>分类<select id="summaryCategory" required></select></label>
+        </div>
+        <label>标签<input id="summaryTags" placeholder="用逗号分隔，最多 6 个" maxlength="240"></label>
         <label for="summaryText">摘要正文</label>
         <textarea id="summaryText" rows="5" placeholder="在这里编辑或粘贴摘要" aria-describedby="summaryCount"></textarea>
         <div class="summary-toolbar">
@@ -133,12 +155,11 @@
           <div class="summary-actions">
             <button type="button" class="secondary" id="copySummary">复制</button>
             <button type="button" class="secondary" id="pasteSummary">粘贴</button>
-            <button type="button" class="secondary" id="generateSummary" hidden>生成摘要</button>
-            <button type="submit" class="primary" id="saveSummary">保存摘要</button>
+            <button type="submit" class="primary" id="saveSummary">保存卡片</button>
           </div>
         </div>
         <p id="summaryStatus" class="status" role="status" hidden></p>
-        <button type="button" class="secondary" id="reloadSummary" hidden>载入已保存的摘要</button>
+        <button type="button" class="secondary" id="reloadSummary" hidden>载入最新资料</button>
       </form>
     </div>
   </dialog>

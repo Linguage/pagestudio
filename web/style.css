@@ -136,6 +136,15 @@ dialog textarea{resize:vertical}
 .reader-content pre{margin:0;font:13px/1.6 ui-monospace,SFMono-Regular,Consolas,monospace;tab-size:2}
 #readerText{max-width:72ch;margin-inline:auto;white-space:pre-wrap;overflow-wrap:anywhere;font:16px/1.75 var(--sans);tab-size:4}
 .summary-form{max-width:680px;margin-inline:auto}
+.summary-heading{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+.summary-heading h3,.card-suggestion h4{margin:0;color:var(--ink)}
+.summary-fields{display:grid;grid-template-columns:minmax(0,2fr) minmax(112px,1fr);gap:12px}
+.summary-form input,.summary-form select{margin-top:4px;font-weight:400}
+.card-suggestion{margin-bottom:16px;padding:12px 14px;border:1px solid var(--line);background:var(--subtle);border-radius:8px}
+.card-suggestion dl{display:grid;grid-template-columns:auto minmax(0,1fr);gap:5px 10px;margin:8px 0 12px;font-size:13px}
+.card-suggestion dt{color:var(--muted)}
+.card-suggestion dd{margin:0;overflow-wrap:anywhere;white-space:pre-wrap}
+:root[data-appearance=retro] .card-suggestion{border-radius:0}
 .summary-form label{margin:0 0 8px;color:var(--ink);font-size:14px;font-weight:650}
 .summary-form textarea{font-size:15px;line-height:1.65;min-height:8em}
 .summary-toolbar,.summary-actions{display:flex;align-items:center;flex-wrap:wrap;gap:8px}

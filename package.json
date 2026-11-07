@@ -1,6 +1,6 @@
 {
   "name": "pagestudio-dsh",
-  "version": "0.5.3",
+  "version": "0.5.4",
   "type": "module",
   "description": "浏览、导入和整理本地 HTML 知识卡片。",
   "author": "Linguage",

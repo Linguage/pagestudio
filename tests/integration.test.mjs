@@ -226,6 +226,27 @@ test('bundled DSH authoring skills generate and import into the existing library
   assert.equal(imported.filename, '对话产物.html');
   assert.deepEqual(Buffer.from(library.file(imported.id).raw), Buffer.from(standalone));
   assert.equal(library.list({ category: '待归类' }).total, 2);
+  const detailsRoute = '/api/card/' + imported.id + '/details';
+  const handle = createHandler(library);
+  const initial = JSON.parse((await request(handle, detailsRoute)).data);
+  const submit = input => request(handle, detailsRoute, {
+    method: 'POST', headers: { 'x-html-cards': 'local', origin: 'dsh-app://app' },
+    body: Buffer.from(JSON.stringify({ ...input, version: initial.version })),
+  });
+  const suggest = tools.get('html_cards_suggest_details').execute;
+  const input = { title: '如何整理对话产物', category: '内容创作', tags: ['对话', '归档'], summary: '把对话成果保存到卡片库。' };
+  const suggested = await suggest({ id: imported.id, version: initial.version, ...input }, execution);
+  assert.equal(JSON.parse(suggested).saved, true);
+  assert.deepEqual(library.details(imported.id).suggestion, input);
+  assert.equal(library.list({ category: '待归类' }).total, 2);
+  assert.equal((await submit({ ...input, summary: '字'.repeat(141) })).status, 400);
+  assert.equal(library.details(imported.id).title, initial.title);
+  assert.equal((await submit(input)).status, 200);
+  assert.equal(library.details(imported.id).suggestion, null);
+  assert.equal(library.list({ category: input.category, q: input.summary }).cards[0].title, input.title);
+  assert.deepEqual(Buffer.from(library.file(imported.id).raw), Buffer.from(standalone));
+  assert.equal((await submit({ ...input, title: '过时标题' })).status, 409);
+  await assert.rejects(suggest({ id: imported.id, version: initial.version, ...input }, execution), /卡片已有更新/);
 
   const project = join(directory, 'talk', 'project');
   await mkdir(join(project, 'slides'), { recursive: true });
@@ -251,7 +272,6 @@ test('bundled DSH authoring skills generate and import into the existing library
   for (const [key, body] of Object.entries({ 'deck.json': JSON.stringify(manifest),
     'slides/a.html': slides.a, 'slides/b.html': slides.b, 'assets/shape.svg': asset })) form.append(key, new Blob([body]), key);
   const multipart = new Response(form);
-  const handle = createHandler(library);
   const uploaded = await request(handle, '/api/import-deck', {
     method: 'POST', headers: { 'x-html-cards': 'local', 'content-type': multipart.headers.get('content-type') },
     body: Buffer.from(await multipart.arrayBuffer()),
