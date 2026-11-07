@@ -1,0 +1,59 @@
+name: Release PageStudio
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing stable tag matching package.json
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: pagestudio-release
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    env:
+      RELEASE_TAG: ${{ inputs.tag }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          ref: ${{ inputs.tag }}
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version: '24'
+      - name: Check tag and build
+        run: |
+          node -e 'const {version} = require("./package.json"); if (!/^v\d+\.\d+\.\d+$/.test(process.env.RELEASE_TAG) || process.env.RELEASE_TAG !== "v" + version) process.exit(1)'
+          npm test
+          npm run package
+      - name: Publish release and update registry
+        run: |
+          mkdir -p "${RUNNER_TEMP}/pagestudio-release"
+          cp dist/*.tgz dist/SHA256SUMS "${RUNNER_TEMP}/pagestudio-release/"
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            gh release download "$RELEASE_TAG" --pattern '*.tgz' --output "${RUNNER_TEMP}/existing.tgz"
+            cmp "${RUNNER_TEMP}/existing.tgz" dist/*.tgz
+          else
+            gh release create "$RELEASE_TAG" dist/*.tgz dist/SHA256SUMS --verify-tag --generate-notes
+          fi
+          git switch main
+          git pull --ff-only
+          git worktree add --detach "${RUNNER_TEMP}/pagestudio-tag" "$RELEASE_TAG"
+          mkdir -p "${RUNNER_TEMP}/pagestudio-tag/dist"
+          cp "${RUNNER_TEMP}/pagestudio-release/"* "${RUNNER_TEMP}/pagestudio-tag/dist/"
+          if test -d registry; then cp -R registry "${RUNNER_TEMP}/pagestudio-tag/"; fi
+          (cd "${RUNNER_TEMP}/pagestudio-tag" && node scripts/registry.mjs)
+          mkdir -p registry
+          cp "${RUNNER_TEMP}/pagestudio-tag/registry/pagestudio-dsh" registry/
+          git add registry/pagestudio-dsh
+          if ! git diff --cached --quiet; then
+            git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' commit -m "Publish registry metadata for $RELEASE_TAG"
+            git push origin main
+          fi

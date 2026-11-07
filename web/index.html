@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="zh-CN" id="html-shelf">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PageStudio</title>
+  <link rel="icon" href="./icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="./style.css">
+  <script src="./app.js" defer></script>
+</head>
+<body>
+  <aside class="sidebar">
+    <a class="brand" href="./" aria-label="PageStudio 首页"><img class="logo" src="./icon.svg" alt=""><span>PageStudio<small>HTML 卡片库</small></span></a>
+    <div class="nav-label">资料库</div>
+    <nav id="categories" aria-label="分类"></nav>
+    <div class="local"><i></i><div>本机资料库<span>文件与索引保存在本机</span></div></div>
+  </aside>
+  <main>
+    <header class="top"><div class="breadcrumb">资料库 <span>/</span> <b id="location">全部文件</b></div><div class="top-actions"><button class="secondary" id="discussion" hidden>AI 对话</button><button class="secondary" id="ai">✦　AI 整理</button><button class="primary" id="create">＋ 新建 HTML</button></div></header>
+    <div class="content">
+      <section class="hero">
+        <div>
+          <div class="eyebrow"><span></span> 本地 HTML 档案</div><h1>PageStudio</h1>
+          <p>把报告、笔记和交互页面收在一起，随时找回。</p>
+          <button id="versionButton" class="version-button" type="button">版本与更新</button>
+        </div>
+        <img class="hero-mark" src="./icon.svg" alt="">
+      </section>
+      <section id="drop" aria-label="导入文件">
+        <div class="drop-icon" aria-hidden="true">↥</div>
+        <div class="drop-text"><strong>拖入 HTML，放上书架</strong><span>自动提取标题和摘要，跳过重复文件，新卡片进入「待归类」。</span></div>
+        <div class="import-buttons"><button class="secondary" id="pickFolder">选择文件夹</button><button class="primary" id="pick">选择文件</button></div>
+        <input type="file" id="files" multiple accept=".html,.htm,text/html" hidden>
+        <input type="file" id="folder" webkitdirectory multiple hidden>
+      </section>
+      <p id="status" class="status" role="status" hidden></p>
+      <section class="collection" aria-labelledby="heading">
+        <header class="collection-head">
+          <div><h2 id="heading">全部文件</h2><span id="count"></span></div>
+          <div class="collection-actions"><label class="search"><span aria-hidden="true">⌕</span><input id="search" type="search" placeholder="搜索标题、正文或标签" aria-label="搜索标题、正文或标签"></label></div>
+        </header>
+        <div class="grid" id="cards"></div>
+        <div class="pages" id="pages" hidden><button id="prev" class="secondary">上一页</button><span id="pageLabel"></span><button id="next" class="secondary">下一页</button></div>
+      </section>
+    </div>
+  </main>
+  <dialog id="creator" class="creator" aria-labelledby="createTitle">
+    <form id="createForm">
+      <div class="dialog-head"><div><div class="eyebrow">待归类</div><h2 id="createTitle">新建 HTML</h2></div><button type="button" class="icon close" aria-label="关闭">×</button></div>
+      <label>文件名<input id="createName" maxlength="240" placeholder="我的笔记.html" required autofocus></label>
+      <label>HTML 源码<textarea id="createCode" class="create-code" rows="12" spellcheck="false" required></textarea></label>
+      <p class="status" id="createStatus" role="status" hidden></p>
+      <div class="dialog-actions"><button type="button" class="secondary close">取消</button><button class="primary" type="submit">创建并预览</button></div>
+    </form>
+  </dialog>
+  <dialog id="editor">
+    <form id="editForm">
+      <div class="dialog-head"><div><div class="eyebrow">卡片设置</div><h2>编辑卡片</h2></div><button type="button" class="icon close" aria-label="关闭">×</button></div>
+      <label>标题<input id="editTitle" maxlength="200" required></label>
+      <label>文件名<input id="editFilename" maxlength="255" required></label>
+      <label>分类<select id="editCategory"></select></label>
+      <label>标签<input id="editTags" maxlength="250" placeholder="用逗号分隔，例如：Matlab，轮轨"></label>
+      <p class="status" id="editStatus" role="status" hidden></p>
+      <div class="dialog-actions"><button type="button" class="secondary close">取消</button><button class="primary" type="submit">保存</button></div>
+    </form>
+  </dialog>
+  <dialog id="updateDialog" aria-labelledby="updateTitle">
+    <div class="dialog-head">
+      <h2 id="updateTitle">版本与更新</h2>
+      <button type="button" class="icon close" aria-label="关闭">×</button>
+    </div>
+    <p id="updateMessage" role="status" aria-live="polite"></p>
+    <div class="dialog-actions">
+      <button id="checkUpdate" class="secondary" type="button">检查更新</button>
+      <a id="releaseLink" class="secondary" target="_blank" rel="noopener noreferrer" hidden>发行说明 ↗</a>
+      <button id="installUpdate" class="primary" type="button" hidden>升级</button>
+    </div>
+  </dialog>
+  <dialog id="reader" class="reader" aria-labelledby="readerTitle">
+    <div class="reader-bar">
+      <button type="button" class="secondary close">← 返回卡片库</button>
+      <h2 id="readerTitle"></h2>
+      <div class="reader-actions"><button type="button" id="askCard" class="secondary" title="将此卡片的标题和正文片段填入 AI 草稿" hidden>问 AI</button><button type="button" id="readerZoom" class="secondary">原始大小</button><button type="button" id="exportImages" class="secondary" hidden>导出图片</button><a id="source" class="secondary" target="_blank" rel="noopener noreferrer" hidden>来源网页 ↗</a><a id="download" class="secondary">下载原件</a></div>
+    </div>
+    <div id="readerTabs" class="reader-tabs" role="tablist" aria-label="预览模式">
+      <button type="button" id="renderTab" role="tab" aria-controls="renderPanel" aria-selected="true">HTML 渲染</button>
+      <button type="button" id="codeTab" role="tab" aria-controls="codePanel" aria-selected="false" tabindex="-1">代码预览</button>
+      <button type="button" id="textTab" role="tab" aria-controls="textPanel" aria-selected="false" tabindex="-1">纯内容文本</button>
+      <button type="button" id="summaryTab" role="tab" aria-controls="summaryPanel" aria-selected="false" tabindex="-1">卡片摘要</button>
+    </div>
+    <p id="exportStatus" class="reader-export-status" role="status" hidden></p>
+    <div id="renderPanel" class="reader-panel" role="tabpanel" aria-labelledby="renderTab">
+      <iframe id="frame" title="HTML 卡片正文" sandbox="allow-scripts" referrerpolicy="no-referrer"></iframe>
+    </div>
+    <div id="codePanel" class="reader-panel reader-content" role="tabpanel" aria-labelledby="codeTab" tabindex="0" hidden><pre><code id="readerCode"></code></pre></div>
+    <div id="textPanel" class="reader-panel reader-content" role="tabpanel" aria-labelledby="textTab" tabindex="0" hidden><div id="readerText"></div></div>
+    <div id="summaryPanel" class="reader-panel reader-content" role="tabpanel" aria-labelledby="summaryTab" hidden>
+      <form id="summaryForm" class="summary-form">
+        <label for="summaryText">摘要正文</label>
+        <textarea id="summaryText" rows="5" placeholder="在这里编辑或粘贴摘要" aria-describedby="summaryCount"></textarea>
+        <div class="summary-toolbar">
+          <span id="summaryCount">0 / 140 字</span>
+          <div class="summary-actions">
+            <button type="button" class="secondary" id="copySummary">复制</button>
+            <button type="button" class="secondary" id="pasteSummary">粘贴</button>
+            <button type="button" class="secondary" id="generateSummary" hidden>生成摘要</button>
+            <button type="submit" class="primary" id="saveSummary">保存摘要</button>
+          </div>
+        </div>
+        <p id="summaryStatus" class="status" role="status" hidden></p>
+        <button type="button" class="secondary" id="reloadSummary" hidden>载入已保存的摘要</button>
+      </form>
+    </div>
+  </dialog>
+  <dialog id="aiDialog">
+    <div class="dialog-head"><div><div class="eyebrow">DSH 对话</div><h2>整理待归类文件</h2></div><button type="button" class="icon close" aria-label="关闭">×</button></div>
+    <p>在 DSH 对话中提交后，模型会根据待归类卡片的标题和正文片段选择分类、补充标签，并按内容重命名文件。</p>
+    <label>整理指令<textarea id="prompt" rows="4" readonly></textarea></label>
+    <p class="status" id="aiStatus" role="status" hidden></p>
+    <div class="dialog-actions"><button class="secondary close">关闭</button><button class="primary" id="copy">复制指令</button></div>
+  </dialog>
+</body>
+</html>

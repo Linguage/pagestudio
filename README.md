@@ -1,0 +1,69 @@
+# PageStudio · DeepSeek Harness
+
+PageStudio 是一个本地 HTML 卡片库。它支持整套 HTML 幻灯片、离线预览、图片导出，以及在 DSH 对话中创建、总结和整理卡片。
+
+## 安装与更新
+
+1. 打开 DSH 的「插件 → 添加插件 → 安装第三方插件」，包名填 `pagestudio-dsh`。
+2. 在「安装源」选择「自定义地址」，填入 `https://raw.githubusercontent.com/Linguage/pagestudio/main/registry/`。
+3. 点击「安装」并启用。原 HTML 卡片库或 PageHub 用户先在插件页停用旧版，PageStudio 会读取原有资料库。
+
+PageStudio 首页标题下方显示当前版本。有新版时，这里显示「可更新到 …」。点击打开版本窗口，再点「升级到 …」，由 DSH 安装选中的版本。使用自定义注册表安装后，可在 PageStudio 内直接升级。通过压缩包安装的版本会提供新版下载入口。
+
+[下载安装包](https://github.com/Linguage/pagestudio/releases/latest) · [发行记录](https://github.com/Linguage/pagestudio/releases)
+
+## 使用
+
+在 DSH 侧栏里浏览本地 HTML 卡片。拖入 `.html` 或 `.htm` 文件，或用「新建 HTML」编写、粘贴源码。新卡片进入「待归类」，相同内容会去重。可以搜索标题、文件名、正文片段和标签，也可以手工改标题、文件名、分类与标签。
+
+卡片库和预览窗口即时跟随 DSH 的明暗主题，独立打开时跟随系统设置。HTML 渲染保留原件自带的配色，无样式的页面使用当前主题的阅读配色。
+
+点击卡片会在 DSH 内打开阅读窗口，可切换「HTML 渲染」「代码预览」「纯内容文本」「卡片摘要」。渲染模式内置 Tailwind、图标和公式资源，可离线呈现原有排版。阅读窗口以隔离方式呈现内容，保留本机可用字体，并过滤卡片自带脚本和外部请求。「下载原件」使用卡片库中的当前文件名，保留原有字节。
+
+「卡片摘要」可编辑、复制和粘贴，保存上限为 140 字（含标点）。点「生成摘要」后在原生 AI 侧栏发送请求，DSH 会读取卡片正文，生成并写回摘要。卡片列表优先显示已保存的摘要，摘要为空时显示默认摘录。
+
+「AI 对话」在卡片库右侧打开原生 DSH 讨论，沿用 DSH 的模型、消息历史和工具权限。阅读器里的「问 AI」可把当前卡片的标题、文件名、分类和正文片段加入草稿，点击发送才提交。
+
+在侧栏点击「制成卡片」，或在任意 DSH 对话调用 `/html-cards-create`，指定要整理的对话内容、文章或 Markdown。插件复用文章信息卡的单页杂志和双页版式，生成后直接保存到「待归类」。工具会核对引语与要点引用。下载原件后可打开「检查版面」检查固定画布。
+
+已有成果时，在 DSH 对话调用 `/html-cards-import` 并指定生成的 `.html`、`.htm` 文件或对话里的完整 HTML 源码，即可导入同一资料库。重复内容会指向现有卡片。
+
+包含 `deck.json` 和 `slides/` 的 Claude Slides 项目可整套导入。用「选择文件夹」选项目，或在 `/html-cards-import` 后指定项目目录或 `deck.json`。整套显示为一张卡片，预览可按原顺序翻页。项目内受支持的图片和字体会嵌入可下载的 HTML，网页字体会使用本机回退字体。
+
+Reveal.js、Slidev 或其他分页 HTML 可先在 DSH 对话中用 `/html-cards-normalize-deck` 整理成相同目录格式，再整套导入。
+
+在 DSH 桌面版的「HTML 渲染」页点「导出图片」。单篇 HTML 导出一张 PNG 长图，幻灯片和多页信息卡每页导出一张 PNG，按页码命名并打包成 ZIP。文件保存到下载目录。
+
+「AI 整理」在同一侧栏准备整理草稿。提交后，`html-cards-organize` 技能使用当前会话模型，根据待归类卡片的标题和文本片段选择分类、补充标签，并按内容重命名。重名时加序号。已有分类的卡片会自动跳过。
+
+## 运行和打包
+
+需要 Node.js 22.19 或以上。插件使用 Node 自带的 SQLite。原生对话侧栏需要 DSH 0.2.2-rc.1 或以上。
+
+```sh
+# 从仓库根目录运行
+npm test
+npm run package
+```
+
+如已安装 DSH CLI，`npm run test:host` 会在独立的临时资料库中启动 DSH，验证插件激活、页面加载和导入接口。安装包在 `dist/`。
+
+## 导入已有卡片
+
+已有兼容的 HTML Cards 静态目录时，可运行 `npm run seed -- /path/to/html-cards` 导入。它读取根目录和分类目录中的 HTML，复用索引标题。可重复执行，相同内容按 SHA-256 跳过。
+
+默认资料库在 `~/.dsh/storages/dsh-html-cards`。如果 DSH 设置了 `DSH_HOME`，沿用该目录。也可以用 `DSH_HTML_CARDS_DIR` 指定资料库。退出后可备份 `library.sqlite`。
+
+本地开发预览使用独立的资料库：
+
+```sh
+DSH_HTML_CARDS_DIR="$PWD/.local/library" npm run serve
+```
+
+打开终端显示的本机地址。原生侧栏和打开对话功能由 DSH 提供。
+
+## 发行维护
+
+更新 `package.json` 的版本后创建并推送同名版本标签，例如 `v0.5.1`。在 GitHub Actions 手动运行 **Release PageStudio**，填入该标签。工作流运行测试、生成安装包和校验文件、发布 GitHub Release，再更新自定义注册表。注册表保留已发布的版本和安装包校验值。
+
+第三方资源的来源和许可见 [vendor/SOURCES.md](vendor/SOURCES.md) 及各自附带的许可文件。

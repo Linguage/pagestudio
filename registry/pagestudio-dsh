@@ -1,0 +1,72 @@
+{
+  "name": "pagestudio-dsh",
+  "dist-tags": {
+    "latest": "0.5.0"
+  },
+  "versions": {
+    "0.5.0": {
+      "name": "pagestudio-dsh",
+      "version": "0.5.0",
+      "type": "module",
+      "description": "浏览、导入和整理本地 HTML 知识卡片。",
+      "author": "Linguage",
+      "repository": {
+        "type": "git",
+        "url": "git+https://github.com/Linguage/pagestudio.git"
+      },
+      "homepage": "https://github.com/Linguage/pagestudio",
+      "keywords": [
+        "dsh-plugin",
+        "html",
+        "slides"
+      ],
+      "license": "UNLICENSED",
+      "main": "./lib/index.js",
+      "icon": "./icon.svg",
+      "exports": {
+        ".": "./lib/index.js",
+        "./client": "./lib/client.js",
+        "./package.json": "./package.json"
+      },
+      "files": [
+        "lib",
+        "web",
+        "vendor",
+        "skills",
+        "icon.svg",
+        "cordis.patch.yml",
+        "README.md"
+      ],
+      "engines": {
+        "node": ">=22.19",
+        "dsh": ">=0.2.2-rc.1 <0.3.0"
+      },
+      "dsh": {
+        "bundle": {
+          "patch": "./cordis.patch.yml"
+        },
+        "client": {
+          "platform": "web",
+          "inject": []
+        }
+      },
+      "scripts": {
+        "seed": "node scripts/seed.mjs",
+        "serve": "node scripts/serve.mjs",
+        "test": "node --test tests/*.test.mjs",
+        "test:host": "node scripts/check-host.mjs",
+        "package": "node scripts/package.mjs"
+      },
+      "dist": {
+        "tarball": "https://github.com/Linguage/pagestudio/releases/download/v0.5.0/pagestudio-dsh-0.5.0.tgz",
+        "shasum": "8293b6af903ea6e85244afdc827a2c299c67d404",
+        "integrity": "sha512-/a/nm8hTKCE+gCWIyfSdke6UKltStZ9XRN+bubCD5Cvt79jiaQMcP4lIpzTWbBZalI/cQCAc3hy2I+g8EoxP8A=="
+      }
+    }
+  },
+  "time": {
+    "created": "2026-11-07T13:29:05.371Z",
+    "0.5.0": "2026-11-07T13:29:05.371Z",
+    "modified": "2026-11-07T13:29:05.371Z"
+  }
+}

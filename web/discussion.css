@@ -1,0 +1,77 @@
+.html-cards-workspace {
+  container-type: inline-size;
+  position: relative;
+  display: flex;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  min-width: 0;
+  overflow: clip;
+}
+
+.html-cards-workspace > iframe {
+  display: block;
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  border: 0;
+}
+
+.html-cards-discussion {
+  display: flex;
+  flex: 0 0 clamp(340px, 39%, 520px);
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  background: var(--dsw-alias-bg-base);
+  color: var(--dsw-alias-label-primary);
+  border-inline-start: 1px solid var(--dsw-alias-border-l2);
+}
+
+.html-cards-discussion[hidden] { display: none; }
+
+.html-cards-discussion > header {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--dsw-alias-border-l2);
+}
+
+.html-cards-discussion > header h2 { margin: 0; font-size: 14px; font-weight: 650; }
+.html-cards-discussion > header p { margin: 3px 0 0; font-size: 12px; color: var(--dsw-alias-label-tertiary); }
+.html-cards-discussion-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.html-cards-discussion-actions button {
+  border: 0;
+  border-radius: 6px;
+  width: 30px;
+  height: 30px;
+  background: transparent;
+  color: inherit;
+  font: 20px/1 system-ui, sans-serif;
+  cursor: pointer;
+}
+.html-cards-discussion-actions button:hover { background: var(--dsw-alias-interactive-bg-hover); }
+.html-cards-discussion-actions .html-cards-create-card {
+  width: auto;
+  padding: 0 9px;
+  border: 1px solid var(--dsw-alias-border-l2);
+  font-size: 12px;
+}
+.html-cards-discussion-actions button:disabled { opacity: .5; cursor: default; }
+.html-cards-discussion-status { margin: 10px 16px; font-size: 13px; }
+.html-cards-discussion-status[role=alert] { color: var(--dsw-alias-state-error-primary); }
+
+@container (max-width: 730px) {
+  .html-cards-discussion {
+    position: absolute;
+    inset: 0 0 0 auto;
+    z-index: 1;
+    width: min(100%, 430px);
+  }
+}
