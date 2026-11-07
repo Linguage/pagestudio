@@ -577,7 +577,7 @@ function setReleaseStatus(status) {
   }
   const detail = latest
     ? (native ? '可升级到 ' + latest + '。点击升级后，DSH 将安装新版。'
-      : '已有新版 ' + latest + '。可在发行页下载，或按发行页说明从更新源安装。')
+      : '已有新版 ' + latest + '。请下载新版安装包，并在 DSH 插件页按发行说明升级。')
     : (incompatible ? '有新版本需要先更新 DSH。' : '已是最新版本。');
   $('updateMessage').textContent = current + (error || detail);
 }

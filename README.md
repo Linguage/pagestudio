@@ -4,11 +4,11 @@ PageStudio 是一个本地 HTML 卡片库。它支持整套 HTML 幻灯片、离
 
 ## 安装与更新
 
-1. 打开 DSH 的「插件 → 添加插件 → 安装第三方插件」，包名填 `pagestudio-dsh`。
-2. 在「安装源」选择「自定义地址」，填入 `https://raw.githubusercontent.com/Linguage/pagestudio/main/registry/`。
-3. 点击「安装」并启用。原 HTML 卡片库或 PageHub 用户先在插件页停用旧版，PageStudio 会读取原有资料库。
+1. 从下方发行页下载 `pagestudio-dsh-*.tgz`。
+2. 在 DSH 的「插件 → 添加插件 → 安装第三方插件」中填入安装包的本地路径并启用。
+3. 原 HTML 卡片库或 PageHub 用户先在插件页停用旧版。PageStudio 会读取原有资料库。
 
-PageStudio 首页标题下方显示当前版本。有新版时，这里显示「可更新到 …」。点击打开版本窗口，再点「升级到 …」，由 DSH 安装选中的版本。使用自定义注册表安装后，可在 PageStudio 内直接升级。通过压缩包安装的版本会提供新版下载入口。
+PageStudio 首页标题下方显示当前版本。有新版时，点击「可更新到 …」并选择「下载新版」。通过 GitHub 压缩包安装的用户，可在 DSH 插件页卸载旧版 PageStudio，然后安装下载的新版压缩包。资料库独立存放，升级后可直接读取。原生的「升级到」按钮适用于 DSH 能从 npm 官方注册表更新的版本。
 
 [下载安装包](https://github.com/Linguage/pagestudio/releases/latest) · [发行记录](https://github.com/Linguage/pagestudio/releases)
 
