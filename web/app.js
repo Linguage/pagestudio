@@ -3,8 +3,8 @@ const $ = (id) => document.getElementById(id);
 const pending = '待归类';
 const colors = {
   '工程技术':['#557c91','#e9f0f4','#263947'], 'AI 技术':['#70679d','#eeecf6','#38324d'],
-  '内容创作':['#9e7650','#f4eee3','#423526'], '个人发展':['#507e6c','#e8f1eb','#263c35'],
-  '思想与人文':['#a96c83','#f5eaf0','#453140'], '其他':['#829158','#eef1e1','#373c27'],
+  '内容创作':['#9e7650','#f4eee3','#423526'], '个人发展':['#8d6559','#f2e7df','#44342f'],
+  '思想与人文':['#a96c83','#f5eaf0','#453140'], '其他':['#7e7669','#eee8dc','#3b352e'],
   '待归类':['#907e6c','#f0ede7','#3c3530']
 };
 let category = '', page = 1, state, editing, importing = false;
@@ -13,6 +13,7 @@ let readerItem, readerRequest;
 let summaryEditor;
 const method = {pending:'待归类', auto:'自动归类', ai:'AI 归类', manual:'手工整理', archive:'原卡片库分类'};
 const chatChannel = 'dsh-html-cards-discussion';
+const appearanceKey = 'pagestudio-appearance';
 let discussionAvailable = false;
 let release;
 let checkingRelease = false;
@@ -51,20 +52,57 @@ function followTheme() {
     if (window.parent !== window) host = window.parent.document.body;
   } catch { /* Standalone and cross-origin previews use the system theme. */ }
   const media = matchMedia('(prefers-color-scheme: dark)');
+  const options = $('appearanceOptions');
+  function readPreference() {
+    try {
+      const saved = JSON.parse(localStorage.getItem(appearanceKey));
+      options.elements.appearance.value = saved?.appearance === 'retro' ? 'retro' : 'song';
+      options.elements.mode.value = ['light', 'dark'].includes(saved?.mode) ? saved.mode : 'auto';
+    } catch {
+      options.elements.appearance.value = 'song';
+      options.elements.mode.value = 'auto';
+    }
+  }
   const sync = () => {
-    const dark = host ? host.hasAttribute('data-ds-dark-theme') : media.matches;
+    const { appearance, mode } = options.elements;
+    const systemDark = host ? host.hasAttribute('data-ds-dark-theme') : media.matches;
+    const dark = mode.value === 'auto' ? systemDark : mode.value === 'dark';
+    document.documentElement.dataset.appearance = appearance.value;
     document.documentElement.dataset.theme = dark ? 'dark' : 'light';
     syncReaderTheme();
+    syncWorkspaceTheme();
   };
+  $('appearanceButton').onclick = () => $('appearanceDialog').showModal();
+  options.addEventListener('change', () => {
+    const { appearance, mode } = options.elements;
+    try {
+      localStorage.setItem(appearanceKey, JSON.stringify({ appearance: appearance.value, mode: mode.value }));
+    } catch { /* Still apply the preference in the current window. */ }
+    sync();
+  });
   const observer = host ? new MutationObserver(sync) : null;
   if (observer) observer.observe(host, { attributes: true, attributeFilter: ['data-ds-dark-theme'] });
   else media.addEventListener('change', sync);
+  window.addEventListener('storage', event => {
+    if (event.key === appearanceKey || event.key === null) {
+      readPreference();
+      sync();
+    }
+  });
+  readPreference();
   sync();
   window.addEventListener('pagehide', event => {
     if (event.persisted) return;
     observer?.disconnect();
     media.removeEventListener('change', sync);
   });
+}
+function activeAppearance() {
+  const { theme, appearance } = document.documentElement.dataset;
+  return { theme, appearance };
+}
+function syncWorkspaceTheme() {
+  if (window.parent !== window) updateHost('appearance', activeAppearance());
 }
 function message(id, text, error = false) {
   $(id).textContent = text;
@@ -187,7 +225,7 @@ function showReader(item) {
   $('source').hidden = !item.canonical;
   if (item.canonical) $('source').href = item.canonical;
   else $('source').removeAttribute('href');
-  $('frame').src = './reader/' + item.id + '?theme=' + document.documentElement.dataset.theme;
+  $('frame').src = './reader/' + item.id + '?' + new URLSearchParams(activeAppearance());
   selectReaderTab(readerTabs[0]);
   $('reader').showModal();
 }
@@ -195,7 +233,7 @@ function syncReaderTheme() {
   if (!readerItem) return;
   $('frame').contentWindow?.postMessage({
     channel: 'dsh-html-cards-reader',
-    theme: document.documentElement.dataset.theme,
+    ...activeAppearance(),
   }, '*');
 }
 $('frame').addEventListener('load', syncReaderTheme);
@@ -556,8 +594,8 @@ $('copy').onclick = async () => {
 function openDiscussion(mode, id, revision) {
   window.parent.postMessage({ channel: chatChannel, type: 'open', mode, id, revision }, window.location.origin === 'null' ? '*' : window.location.origin);
 }
-function updateHost(type) {
-  window.parent.postMessage({ channel: chatChannel, type }, window.location.origin === 'null' ? '*' : window.location.origin);
+function updateHost(type, data) {
+  window.parent.postMessage({ channel: chatChannel, type, ...data }, window.location.origin === 'null' ? '*' : window.location.origin);
 }
 function setReleaseStatus(status) {
   checkingRelease = false;
@@ -619,13 +657,14 @@ $('exportImages').onclick = () => {
   exportMessage('正在准备图片…');
   window.parent.postMessage({
     channel: chatChannel, type: 'export-images', id: exportingId, title: readerItem.title,
-    theme: document.documentElement.dataset.theme === 'dark' ? 'dark' : 'light',
+    ...activeAppearance(),
     width: $('frame').clientWidth, height: $('frame').clientHeight,
   }, window.location.origin === 'null' ? '*' : window.location.origin);
 };
 window.addEventListener('message', event => {
   if (window.parent === window || event.source !== window.parent || event.origin !== window.location.origin || event.data?.channel !== chatChannel) return;
   if (event.data.type === 'connect') {
+    syncWorkspaceTheme();
     discussionAvailable = true;
     exportAvailable = event.data.canExport === true;
     $('exportImages').hidden = !exportAvailable || $('renderPanel').hidden;

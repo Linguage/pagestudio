@@ -7,7 +7,7 @@ const [packed] = JSON.parse(execFileSync('npm', ['pack', '--ignore-scripts', '--
 const entries = packed.files.map(file => file.path);
 const allowed = [
   /^(?:package\.json|README\.md|cordis\.patch\.yml|icon\.svg|lib\/[^/]+)$/,
-  /^web\/(?:index\.html|app\.js|style\.css|discussion\.css|reader\.js|deck\.js|deck\.css|capture\.js|export\.js)$/,
+  /^web\/(?:index\.html|app\.js|style\.css|themes\.css|discussion\.css|reader\.js|deck\.js|deck\.css|capture\.js|export\.js)$/,
   /^vendor\/(?:SOURCES\.md|(?:tailwind|mathjax|json5)\.js|fontawesome\.css|(?:tailwind|mathjax|json5|fontawesome)\.LICENSE|fa-[\w-]+\.woff2)$/,
   /^vendor\/article-cards\/(?:render\.mjs|validate\.mjs|LICENSE)$/,
   /^skills\/html-cards-(?:organize|import|create|normalize-deck)\/SKILL\.md$/,
@@ -17,7 +17,7 @@ if (!entries.every(path => allowed.some(pattern => pattern.test(path)))) {
   throw Error('安装包包含意外文件');
 }
 for (const path of [
-  'lib/index.js', 'lib/client.js', 'lib/authoring.mjs', 'lib/decks.mjs', 'web/index.html', 'web/reader.js', 'web/discussion.css', 'web/deck.js', 'web/deck.css', 'web/capture.js', 'web/export.js',
+  'lib/index.js', 'lib/client.js', 'lib/authoring.mjs', 'lib/decks.mjs', 'web/index.html', 'web/reader.js', 'web/themes.css', 'web/discussion.css', 'web/deck.js', 'web/deck.css', 'web/capture.js', 'web/export.js',
   'vendor/tailwind.js', 'vendor/mathjax.js', 'vendor/fontawesome.css', 'vendor/json5.js',
   'vendor/article-cards/render.mjs', 'vendor/article-cards/validate.mjs', 'vendor/article-cards/LICENSE',
   'skills/html-cards-organize/SKILL.md', 'skills/html-cards-import/SKILL.md', 'skills/html-cards-create/SKILL.md', 'skills/html-cards-normalize-deck/SKILL.md',

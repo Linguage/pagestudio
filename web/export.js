@@ -94,8 +94,8 @@ async function capturePage(guest, dimensions, run) {
   return toPng(canvas);
 }
 
-export async function exportImages(desktop, { id, title, theme, width, height }, signal, progress) {
-  const url = '/html-cards/reader/' + id + '?capture=1&theme=' + theme;
+export async function exportImages(desktop, { id, title, theme, appearance, width, height }, signal, progress) {
+  const url = '/html-cards/reader/' + id + '?' + new URLSearchParams({ capture: '1', theme, appearance });
   const response = await fetch(url, { signal });
   if (!response.ok) throw Error('无法读取渲染页面。');
   const source = await response.text();

@@ -1,10 +1,11 @@
 <!doctype html>
-<html lang="zh-CN" id="html-shelf">
+<html lang="zh-CN" id="html-shelf" class="pagestudio-theme" data-appearance="song">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>PageStudio</title>
   <link rel="icon" href="./icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="./themes.css">
   <link rel="stylesheet" href="./style.css">
   <script src="./app.js" defer></script>
 </head>
@@ -16,7 +17,7 @@
     <div class="local"><i></i><div>本机资料库<span>文件与索引保存在本机</span></div></div>
   </aside>
   <main>
-    <header class="top"><div class="breadcrumb">资料库 <span>/</span> <b id="location">全部文件</b></div><div class="top-actions"><button class="secondary" id="discussion" hidden>AI 对话</button><button class="secondary" id="ai">✦　AI 整理</button><button class="primary" id="create">＋ 新建 HTML</button></div></header>
+    <header class="top"><div class="breadcrumb">资料库 <span>/</span> <b id="location">全部文件</b></div><div class="top-actions"><button class="secondary" id="appearanceButton" type="button" aria-haspopup="dialog">外观</button><button class="secondary" id="discussion" hidden>AI 对话</button><button class="secondary" id="ai">✦　AI 整理</button><button class="primary" id="create">＋ 新建 HTML</button></div></header>
     <div class="content">
       <section class="hero">
         <div>
@@ -44,6 +45,35 @@
       </section>
     </div>
   </main>
+  <dialog id="appearanceDialog" aria-labelledby="appearanceTitle">
+    <div class="dialog-head">
+      <h2 id="appearanceTitle">外观</h2>
+      <button type="button" class="icon close" aria-label="关闭">×</button>
+    </div>
+    <form id="appearanceOptions" class="appearance-options">
+      <fieldset>
+        <legend>主题</legend>
+        <div class="appearance-choices">
+          <label><input type="radio" name="appearance" value="song" checked><span class="appearance-option">
+            <strong>宋式</strong><span class="appearance-swatches song" aria-hidden="true"><i></i><i></i><i></i></span><small>米黄纸色、灰黑墨色</small>
+          </span></label>
+          <label><input type="radio" name="appearance" value="retro"><span class="appearance-option">
+            <strong>复古桌面</strong><span class="appearance-swatches retro" aria-hidden="true"><i></i><i></i><i></i></span><small>方形面板、豆沙粉标签</small>
+          </span></label>
+        </div>
+      </fieldset>
+      <fieldset>
+        <legend>明暗</legend>
+        <div class="appearance-choices modes">
+          <label><input type="radio" name="mode" value="auto" checked><span class="appearance-option">自动</span></label>
+          <label><input type="radio" name="mode" value="light"><span class="appearance-option">浅色</span></label>
+          <label><input type="radio" name="mode" value="dark"><span class="appearance-option">深色</span></label>
+        </div>
+        <p>自动模式跟随 DSH，独立打开时跟随系统。</p>
+      </fieldset>
+    </form>
+    <div class="dialog-actions"><button type="button" class="secondary close">完成</button></div>
+  </dialog>
   <dialog id="creator" class="creator" aria-labelledby="createTitle">
     <form id="createForm">
       <div class="dialog-head"><div><div class="eyebrow">待归类</div><h2 id="createTitle">新建 HTML</h2></div><button type="button" class="icon close" aria-label="关闭">×</button></div>

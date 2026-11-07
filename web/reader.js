@@ -72,6 +72,7 @@
   if (!hasTailwind && !document.body.querySelector('style,[style]') &&
       !document.body.hasAttribute('style') && !document.documentElement.hasAttribute('style')) {
     document.documentElement.setAttribute('data-html-cards-plain', '');
+    document.documentElement.classList.add('pagestudio-theme');
   }
 
   const artboards = articlePages.length ? articlePages : [...document.body.children].filter(node => !node.matches('script,style'));
@@ -120,8 +121,9 @@
   window.addEventListener('load', scheduleLayout);
   window.addEventListener('message', event => {
     if (event.source !== window.parent || event.data?.channel !== 'dsh-html-cards-reader') return;
-    const { theme, fit: nextFit } = event.data;
+    const { theme, appearance, fit: nextFit } = event.data;
     if (theme === 'dark' || theme === 'light') document.documentElement.setAttribute('data-html-cards-theme', theme);
+    if (appearance === 'song' || appearance === 'retro') document.documentElement.dataset.appearance = appearance;
     if (typeof nextFit === 'boolean') {
       fit = nextFit;
       scheduleLayout();
