@@ -43,6 +43,19 @@ jobs:
           else
             gh release create "$RELEASE_TAG" dist/*.tgz dist/SHA256SUMS --verify-tag --generate-notes
           fi
+          git worktree add --detach "${RUNNER_TEMP}/pagestudio-dist" origin/distribution
+          (
+            cd "${RUNNER_TEMP}/pagestudio-dist"
+            for file in "${RUNNER_TEMP}/pagestudio-release/"*.tgz; do
+              name=$(basename "$file")
+              if test -f "$name"; then cmp "$file" "$name"; else cp "$file" "$name"; fi
+              git add "$name"
+            done
+            if ! git diff --cached --quiet; then
+              git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' commit -m "Mirror $RELEASE_TAG install package"
+              git push origin HEAD:distribution
+            fi
+          )
           git switch main
           git pull --ff-only
           git worktree add --detach "${RUNNER_TEMP}/pagestudio-tag" "$RELEASE_TAG"
