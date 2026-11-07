@@ -43,6 +43,96 @@ test('archive import keeps file bytes and categories and skips duplicate content
   assert.equal(library.list().cards[0].category, FOLDERS[folder]);
   assert.equal(library.list().cards[0].title, '索引标题');
   assert.deepEqual(runSeed(), { added: 0, duplicates: 1, total: 1 });
+  const flat = join(directory, 'flat');
+  await mkdir(join(flat, 'cards'), { recursive: true });
+  await writeFile(join(flat, 'index.html'), '<a href="cards/flat.html" data-category="工程技术" class="card-link"><div>平铺索引</div></a>');
+  await writeFile(join(flat, 'cards', 'flat.html'), '<title>另一张卡片</title>');
+  const imported = spawnSync(process.execPath, ['scripts/seed.mjs', flat], {
+    env: { ...process.env, DSH_HTML_CARDS_DIR: directory }, encoding: 'utf8',
+  });
+  assert.equal(imported.status, 0, imported.stderr);
+  assert.equal(library.list({ category: '工程技术' }).cards[0].title, '平铺索引');
+});
+
+test('saved library path is reused and a missing directory does not create an empty library', async t => {
+  const { directory, library } = await workspace(t);
+  library.ingest('real.html', Buffer.from('<title>原有资料</title>'));
+  const home = join(directory, 'home');
+  const config = join(home, 'storages', 'pagestudio-library.json');
+  await mkdir(join(home, 'storages'), { recursive: true });
+  const previous = { home: process.env.DSH_HOME, library: process.env.DSH_HTML_CARDS_DIR };
+  let saved, missing;
+  try {
+    process.env.DSH_HOME = home;
+    delete process.env.DSH_HTML_CARDS_DIR;
+    await writeFile(config, JSON.stringify({ directory }));
+    saved = createLibrary();
+    await writeFile(config, JSON.stringify({ directory: join(directory, 'unavailable') }));
+    missing = createLibrary();
+  } finally {
+    for (const [key, value] of [['DSH_HOME', previous.home], ['DSH_HTML_CARDS_DIR', previous.library]]) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+  }
+  try {
+    assert.equal(saved.list().total, 1);
+    const reply = await request(createHandler(missing), '/api/cards');
+    assert.equal(reply.status, 503);
+    assert.match(JSON.parse(reply.data).error, /找不到已设置的资料库/);
+    await assert.rejects(stat(join(directory, 'unavailable')), { code: 'ENOENT' });
+    await assert.rejects(stat(join(home, 'storages', 'dsh-html-cards')), { code: 'ENOENT' });
+  } finally {
+    saved.close();
+    missing.close();
+  }
+});
+
+test('storage settings open and create distinct libraries and remember the active directory', async t => {
+  const { directory, library } = await workspace(t);
+  library.ingest('old.html', Buffer.from('<title>原资料库</title>'));
+  const home = join(directory, 'home');
+  const previous = { DSH_HOME: process.env.DSH_HOME, DSH_HTML_CARDS_DIR: process.env.DSH_HTML_CARDS_DIR };
+  process.env.DSH_HOME = home;
+  delete process.env.DSH_HTML_CARDS_DIR;
+  const switched = createLibrary();
+  t.after(() => {
+    switched.close();
+    for (const [key, value] of Object.entries(previous)) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+  });
+  const handle = createHandler(switched);
+  const headers = { 'x-html-cards': 'local', origin: 'dsh-app://app' };
+  const select = (directory, create) => request(handle, '/api/storage', {
+    method: 'POST', headers, body: Buffer.from(JSON.stringify({ directory, create })),
+  });
+  assert.equal((await request(handle, '/api/storage')).status, 403);
+  assert.equal((await select(directory, false)).status, 200);
+  assert.equal(switched.list().total, 1);
+  assert.equal((await select(directory, true)).status, 409);
+  const fresh = join(directory, 'new library', 'cards');
+  assert.equal((await select(fresh, false)).status, 400);
+  assert.equal(switched.list().total, 1);
+  const release = switched.holdWrite();
+  try {
+    assert.equal((await select(fresh, true)).status, 409);
+  } finally {
+    release();
+  }
+  assert.equal((await select(fresh, true)).status, 200);
+  assert.equal(switched.list().total, 0);
+  switched.ingest('new.html', Buffer.from('<title>新资料库</title>'));
+  const reopened = createLibrary();
+  try {
+    assert.equal(reopened.list().cards[0].filename, 'new.html');
+    assert.equal(reopened.storage().directory, switched.storage().directory);
+  } finally {
+    reopened.close();
+  }
+  assert.equal((await select(directory, false)).status, 200);
+  assert.equal(switched.list().cards[0].filename, 'old.html');
 });
 
 async function request(handle, path, { method = 'GET', headers = {}, body = Buffer.alloc(0) } = {}) {

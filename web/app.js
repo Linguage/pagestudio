@@ -15,6 +15,8 @@ const method = {pending:'待归类', auto:'自动归类', ai:'AI 归类', manual
 const chatChannel = 'dsh-html-cards-discussion';
 const appearanceKey = 'pagestudio-appearance';
 let discussionAvailable = false;
+let storageBusy = false;
+let storageFixed = false;
 let release;
 let checkingRelease = false;
 let installingRelease = false;
@@ -120,6 +122,55 @@ function post(path, body, contentType) {
   if (contentType) headers['Content-Type'] = contentType;
   return request(path, {method:'POST', headers, body});
 }
+function setStorageBusy(busy) {
+  storageBusy = busy;
+  for (const id of ['storagePath', 'browseStorage', 'createStorage', 'openStorage']) {
+    $(id).disabled = busy || storageFixed;
+  }
+}
+async function openStorageSettings() {
+  const dialog = $('storageDialog');
+  dialog.showModal();
+  message('storageStatus', '');
+  setStorageBusy(true);
+  try {
+    const info = await request('./api/storage', {headers: {'X-HTML-Cards':'local'}});
+    storageFixed = info.fixed;
+    $('storagePath').value = info.directory;
+    message('storageStatus', info.error || (storageFixed ? '当前路径由启动配置指定。' : ''), Boolean(info.error));
+  } catch (error) {
+    message('storageStatus', error.message, true);
+  } finally {
+    setStorageBusy(false);
+  }
+}
+$('storageButton').onclick = openStorageSettings;
+$('browseStorage').onclick = () => {
+  setStorageBusy(true);
+  updateHost('browse-storage');
+};
+$('storageForm').onsubmit = async event => {
+  event.preventDefault();
+  if (storageBusy || storageFixed) return;
+  if (importing) return message('storageStatus', '文件正在导入，请稍后再试。', true);
+  const directory = $('storagePath').value;
+  const create = event.submitter?.value === 'create';
+  setStorageBusy(true);
+  message('storageStatus', '');
+  try {
+    await post('./api/storage', JSON.stringify({directory, create}), 'application/json');
+    $('storageDialog').close();
+    $('search').value = '';
+    category = '';
+    page = 1;
+    message('status', create ? '已新建资料库。' : '已切换资料库。');
+    await refresh();
+  } catch (error) {
+    message('storageStatus', error.message, true);
+  } finally {
+    setStorageBusy(false);
+  }
+};
 async function refresh() {
   activeRequest?.abort();
   const ctrl = new AbortController();
@@ -718,7 +769,15 @@ window.addEventListener('message', event => {
     exportAvailable = event.data.canExport === true;
     $('exportImages').hidden = !exportAvailable || $('renderPanel').hidden;
     $('discussion').hidden = $('askCard').hidden = $('generateSummary').hidden = false;
+    $('browseStorage').hidden = event.data.canBrowse !== true;
     checkRelease();
+  } else if (event.data.type === 'storage-directory') {
+    setStorageBusy(false);
+    if (typeof event.data.directory === 'string') {
+      $('storagePath').value = event.data.directory;
+      message('storageStatus', '');
+    }
+    if (event.data.error) message('storageStatus', event.data.error, true);
   } else if (event.data.type === 'update-status') {
     setReleaseStatus(event.data);
   } else if (event.data.type === 'update-finished') {

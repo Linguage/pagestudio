@@ -1,21 +1,30 @@
 import { readdir, readFile } from 'node:fs/promises';
 import { basename, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { createLibrary, FOLDERS, PENDING } from '../lib/library.mjs';
+import { CATEGORIES, createLibrary, FOLDERS, PENDING } from '../lib/library.mjs';
 import { extractMetadata, textContent } from '../lib/metadata.mjs';
 
 const root = resolve(process.argv[2] || fileURLToPath(new URL('../../', import.meta.url)));
 const navigation = await readFile(join(root, 'index.html'), 'utf8');
 const labels = new Map();
-for (const [, path, html] of navigation.matchAll(/<a\s+href="([^"]+\.html)"[^>]*class="card-link\b[^"]*"[^>]*>([\s\S]*?)<\/a>/gi)) {
+const categories = new Map();
+for (const [, path, attributes, html] of navigation.matchAll(/<a\s+href="([^"]+\.html?)"([^>]*)>([\s\S]*?)<\/a>/gi)) {
+  if (!/\bclass="card-link\b/.test(attributes)) continue;
   const label = [...html.matchAll(/<div\b[^>]*>([\s\S]*?)<\/div>/gi)].map(match => textContent(match[1])).filter(Boolean);
   if (label.length) labels.set(path, [...new Set(label)].join(' · '));
+  const category = attributes.match(/\bdata-category="([^"]+)"/)?.[1];
+  if (CATEGORIES.includes(category)) categories.set(path, category);
 }
 const candidates = [];
-for (const dir of ['', ...Object.keys(FOLDERS)]) {
-  for (const file of await readdir(join(root, dir), { withFileTypes: true })) {
+for (const dir of ['', 'cards', ...Object.keys(FOLDERS)]) {
+  const entries = await readdir(join(root, dir), { withFileTypes: true }).catch(error => {
+    if (dir && error.code === 'ENOENT') return [];
+    throw error;
+  });
+  for (const file of entries) {
     if (file.isFile() && /\.html?$/i.test(file.name) && (dir || file.name !== 'index.html')) {
-      candidates.push({ file: dir ? dir + '/' + file.name : file.name, category: FOLDERS[dir] || PENDING });
+      const path = dir ? dir + '/' + file.name : file.name;
+      candidates.push({ file: path, category: categories.get(path) ?? FOLDERS[dir] ?? PENDING });
     }
   }
 }

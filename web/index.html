@@ -20,6 +20,7 @@
       <i aria-hidden="true"></i>
       <div>
         本机资料库<span>文件与索引保存在本机</span>
+        <button id="storageButton" class="version-button" type="button" aria-haspopup="dialog">资料库位置</button>
         <button id="versionButton" class="version-button" type="button" aria-haspopup="dialog">版本与更新</button>
       </div>
     </div>
@@ -99,6 +100,22 @@
       <label>标签<input id="editTags" maxlength="250" placeholder="用逗号分隔，例如：Matlab，轮轨"></label>
       <p class="status" id="editStatus" role="status" hidden></p>
       <div class="dialog-actions"><button type="button" class="secondary close">取消</button><button class="primary" type="submit">保存</button></div>
+    </form>
+  </dialog>
+  <dialog id="storageDialog" aria-labelledby="storageTitle">
+    <form id="storageForm">
+      <div class="dialog-head">
+        <h2 id="storageTitle">资料库位置</h2>
+        <button type="button" class="icon close" aria-label="关闭">×</button>
+      </div>
+      <p>打开含有 library.sqlite 的文件夹，或指定目录新建资料库。</p>
+      <label>资料库目录<input id="storagePath" maxlength="4096" placeholder="输入绝对路径" spellcheck="false" required></label>
+      <p class="status" id="storageStatus" role="status" hidden></p>
+      <div class="dialog-actions">
+        <button id="browseStorage" class="secondary" type="button" hidden>浏览…</button>
+        <button id="createStorage" class="secondary" type="submit" value="create">新建资料库</button>
+        <button id="openStorage" class="primary" type="submit" value="open">打开资料库</button>
+      </div>
     </form>
   </dialog>
   <dialog id="updateDialog" aria-labelledby="updateTitle">

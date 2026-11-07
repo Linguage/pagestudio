@@ -50,9 +50,11 @@ npm run package
 
 ## 导入已有卡片
 
-已有兼容的 HTML Cards 静态目录时，可运行 `npm run seed -- /path/to/html-cards` 导入。它读取根目录和分类目录中的 HTML，复用索引标题。可重复执行，相同内容按 SHA-256 跳过。
+已有 HTML Cards 静态目录时，可运行 `npm run seed -- /path/to/html-cards` 导入。它支持平铺的 `cards/` 和旧版分类目录，复用索引中的标题与分类。可重复执行，相同内容按 SHA-256 跳过。
 
-默认资料库在 `~/.dsh/storages/dsh-html-cards`。如果 DSH 设置了 `DSH_HOME`，沿用该目录。也可以用 `DSH_HTML_CARDS_DIR` 指定资料库。退出后可备份 `library.sqlite`。
+在左下角点「资料库位置」，可以浏览文件夹或输入绝对路径。点「打开资料库」使用含有 `library.sqlite` 的文件夹，或点「新建资料库」在指定目录初始化空库。切换立即生效，DSH 下次打开时继续使用该目录。需要用 Git 同步时，可以选择独立的私有仓库中的资料目录。
+
+路径保存在本机的 `~/.dsh/storages/pagestudio-library.json`，设置了 `DSH_HOME` 时以该目录为准。启动时指定 `DSH_HTML_CARDS_DIR` 会固定本次运行的目录。
 
 本地开发预览使用独立的资料库：
 
