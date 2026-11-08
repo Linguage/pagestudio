@@ -2,72 +2,56 @@
 
 PageStudio 是一个本地 HTML 卡片库。它支持整套 HTML 幻灯片、离线预览、图片导出，以及在 DSH 对话中创建、总结和整理卡片。
 
+## 界面预览
+
+截图来自 PageStudio v0.5.9 的演示资料库。
+
+![PageStudio 卡片库中的调研简报和幻灯片](docs/assets/pagestudio-library.webp)
+
+| 幻灯片预览 | 分类管理 |
+| --- | --- |
+| ![在阅读窗口内逐页浏览幻灯片](docs/assets/pagestudio-deck.webp) | ![在分类列表中直接重命名](docs/assets/pagestudio-categories.webp) |
+
 ## 安装与更新
 
-1. 从下方发行页下载 `pagestudio-dsh-*.tgz`。
-2. 在 DSH 的「插件 → 添加插件 → 安装第三方插件」中填入安装包的本地路径并启用。
-3. 原 HTML 卡片库或 PageHub 用户先在插件页停用旧版。PageStudio 会读取原有资料库。
+1. 如果已安装旧版 PageStudio，先在 DSH 插件页卸载旧版。
+2. 打开「插件 → 添加插件 → 安装第三方插件」，输入 `https://github.com/Linguage/pagestudio`。
+3. DSH 会安装最新发行版。启用后，从侧栏打开 PageStudio。
 
-当前版本显示在左侧栏底部「本机资料库」下方。有新版时，点击「可更新到 …」并选择「下载新版」。通过 GitHub 压缩包安装的用户，可在 DSH 插件页卸载旧版 PageStudio，然后安装下载的新版压缩包。资料库独立存放，升级后可直接读取。原生的「升级到」按钮适用于 DSH 能从 npm 官方注册表更新的版本。
-
-[下载安装包](https://github.com/Linguage/pagestudio/releases/latest) · [发行记录](https://github.com/Linguage/pagestudio/releases)
+也可以[下载安装包](https://github.com/Linguage/pagestudio/releases/latest)，在同一界面填入本地路径。资料库独立保存在本机，重新安装后可以继续使用。
 
 ## 使用
 
-在 DSH 侧栏里浏览本地 HTML 卡片。拖入 `.html` 或 `.htm` 文件，或用「新建 HTML」编写、粘贴源码。新卡片进入「待归类」，相同内容会去重。可以搜索标题、文件名、正文片段和标签，也可以手工改标题、文件名、分类与标签。
+- **导入。** 拖入 HTML 文件，新卡片会进入「待归类」。已有多页 HTML 或幻灯片时，在 DSH 对话里调用下方的规范化 skill，并请它导入。
+- **阅读和编辑。** 打开卡片可以看页面、读纯文本、改源码或编辑摘要。DSH 桌面版支持把页面导出成图片。
+- **整理和查找。** 用「管理分类」新建、重命名或删除分类。可以给卡片加标签，再按标题、正文或标签搜索。
+- **切换资料库。** 在侧栏底部打开「资料库位置」，选择已有资料库或新建一个。
 
-在右上角「外观」切换宋式或复古桌面主题。两套主题都提供浅色、深色和自动模式，并记住所选设置。自动模式跟随 DSH，独立打开时跟随系统设置。HTML 渲染保留原件自带的配色，无样式的页面使用当前主题的阅读配色。
+## 内置 Skills
 
-点击卡片会在 DSH 内打开阅读窗口，可切换「HTML 渲染」「代码预览」「纯内容文本」「卡片摘要」。渲染模式内置 Tailwind、图标和公式资源，可离线呈现原有排版。阅读窗口以隔离方式呈现内容，保留本机可用字体，并过滤卡片自带脚本和外部请求。「下载原件」使用卡片库中的当前文件名，保留原有字节。
+在 DSH 对话中输入命令，并说明要处理的内容或文件。
 
-在「卡片摘要」里可以手动改标题、从下拉菜单选分类、编辑标签，以及复制、粘贴和编辑摘要。摘要上限为 140 字（含标点）。点击「AI 生成整理建议」，在原生 AI 侧栏发送请求，DSH 会根据正文给出标题、分类、标签和摘要。返回卡片后可直接采用并保存，也可以先填入编辑区再修改。卡片列表优先显示已保存的摘要，摘要为空时显示默认摘录。
+| 命令 | 用途 |
+| --- | --- |
+| `/html-cards-create` | 把当前对话、文章或 Markdown 做成 HTML 信息卡并存入资料库。 |
+| `/html-cards-import` | 把已有的 HTML 或整套幻灯片导入资料库。 |
+| `/html-cards-normalize-deck` | 整理多页 HTML 或幻灯片的页序与版式，可按要求导入并逐页预览。 |
+| `/html-cards-organize` | 给待归类卡片选择已有分类、补标签，并按内容改文件名。 |
 
-「AI 对话」在卡片库右侧打开原生 DSH 讨论，沿用 DSH 的模型、消息历史和工具权限。阅读器里的「问 AI」可把当前卡片的标题、文件名、分类和正文片段加入草稿，点击发送才提交。
+## 项目维护
 
-在侧栏点击「制成卡片」，或在任意 DSH 对话调用 `/html-cards-create`，指定要整理的对话内容、文章或 Markdown。插件复用文章信息卡的单页杂志和双页版式，生成后直接保存到「待归类」。工具会核对引语与要点引用。下载原件后可打开「检查版面」检查固定画布。
+开发预览、测试、扩展入口、旧文件导入与发版步骤见[维护与扩展指南](docs/maintenance.md)。
 
-已有成果时，在 DSH 对话调用 `/html-cards-import` 并指定生成的 `.html`、`.htm` 文件或对话里的完整 HTML 源码，即可导入同一资料库。重复内容会指向现有卡片。
+## 许可与来源
 
-包含 `deck.json` 和 `slides/` 的 Claude Slides 项目可整套导入。用「选择文件夹」选项目，或在 `/html-cards-import` 后指定项目目录或 `deck.json`。整套显示为一张卡片，预览可按原顺序翻页。项目内受支持的图片和字体会嵌入可下载的 HTML，网页字体会使用本机回退字体。
+PageStudio 自有代码的许可状态见 [package.json](package.json)，目前标记为 `UNLICENSED`。下表列出随项目分发的组件和各自适用的许可。
 
-Reveal.js、Slidev 或其他分页 HTML 可先在 DSH 对话中用 `/html-cards-normalize-deck` 整理成相同目录格式，再整套导入。
+| 组件 | 用途 | 许可 |
+| --- | --- | --- |
+| [Tailwind CSS](https://github.com/tailwindlabs/tailwindcss/tree/v3.4.17) | 预览使用 Tailwind 的页面 | [MIT](vendor/tailwind.LICENSE) |
+| [JSON5](https://cdn.jsdelivr.net/npm/json5@2.2.3/dist/index.min.js) | 读取页面中的 Tailwind 配置 | [MIT](vendor/json5.LICENSE) |
+| [Font Awesome Free](https://github.com/FortAwesome/Font-Awesome/tree/6.4.0) | 提供预览所用的图标、字体和样式 | [CC BY 4.0、SIL OFL 1.1、MIT](vendor/fontawesome.LICENSE) |
+| [MathJax](https://github.com/mathjax/MathJax/tree/3.2.2) | 渲染预览中的数学公式 | [Apache 2.0](vendor/mathjax.LICENSE) |
+| [dsh-article-cards](vendor/SOURCES.md#文章信息卡) | 提供文章信息卡的渲染与内容验证 | [MIT](vendor/article-cards/LICENSE) |
 
-在 DSH 桌面版的「HTML 渲染」页点「导出图片」。单篇 HTML 导出一张 PNG 长图，幻灯片和多页信息卡每页导出一张 PNG，按页码命名并打包成 ZIP。文件保存到下载目录。
-
-「AI 整理」在同一侧栏准备整理草稿。提交后，`html-cards-organize` 技能使用当前会话模型，根据待归类卡片的标题和文本片段选择分类、补充标签，并按内容重命名。重名时加序号。已有分类的卡片会自动跳过。
-
-## 运行和打包
-
-需要 Node.js 22.19 或以上。插件使用 Node 自带的 SQLite。原生对话侧栏需要 DSH 0.2.2-rc.1 或以上。
-
-```sh
-# 从仓库根目录运行
-npm test
-npm run package
-```
-
-如已安装 DSH CLI，`npm run test:host` 会在独立的临时资料库中启动 DSH，验证插件激活、页面加载和导入接口。安装包在 `dist/`。
-
-## 导入已有卡片
-
-已有 HTML Cards 静态目录时，可运行 `npm run seed -- /path/to/html-cards` 导入。它支持平铺的 `cards/` 和旧版分类目录，复用索引中的标题与分类。可重复执行，相同内容按 SHA-256 跳过。
-
-在左下角点「资料库位置」，可以浏览文件夹或输入绝对路径。点「打开资料库」使用含有 `library.sqlite` 的文件夹，或点「新建资料库」在指定目录初始化空库。切换立即生效，DSH 下次打开时继续使用该目录。需要用 Git 同步时，可以选择独立的私有仓库中的资料目录。
-
-路径保存在本机的 `~/.dsh/storages/pagestudio-library.json`，设置了 `DSH_HOME` 时以该目录为准。启动时指定 `DSH_HTML_CARDS_DIR` 会固定本次运行的目录。
-
-在卡片预览的「HTML 源码」标签页可以编辑并保存源码，渲染和纯文本随之更新。侧栏的「管理分类」可以新建、重命名或删除分类。重命名会同步更新关联卡片，删除后原分类中的卡片会移到「待归类」。在卡片的「编辑」窗口可以永久删除资料库里的卡片及摘要。
-
-本地开发预览使用独立的资料库：
-
-```sh
-DSH_HTML_CARDS_DIR="$PWD/.local/library" npm run serve
-```
-
-打开终端显示的本机地址。原生侧栏和打开对话功能由 DSH 提供。
-
-## 发行维护
-
-更新 `package.json` 的版本后创建并推送同名版本标签，例如 `v0.5.1`。在 GitHub Actions 手动运行 **Release PageStudio**，填入该标签。工作流运行测试、生成安装包和校验文件、发布 GitHub Release，再更新自定义注册表。注册表保留已发布的版本和安装包校验值。
-
-第三方资源的来源和许可见 [vendor/SOURCES.md](vendor/SOURCES.md) 及各自附带的许可文件。
+组件版本和分发来源见[第三方来源清单](vendor/SOURCES.md)。
