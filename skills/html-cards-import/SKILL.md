@@ -13,3 +13,5 @@ description: 将 DSH 对话中生成的 HTML 文件、源码或包含 deck.json 
 - 用户明确选了多份时，逐份调用并报告结果。只有 ZIP 时先找到解包后的项目或用户指定的 HTML。
 
 根据工具结果报告标题和分类。新卡片进入「待归类」。重复结果指向现有卡片。仅在工具确认成功后报告已导入。
+
+用户指定 PageStudio 项目时，先用 `html_cards_projects` 找到项目 ID，再在 `html_cards_import` 传入 `project_id`。需要新建时按用户指定的名称用 `html_cards_create_project`。导入成功后同时报告项目。重复文件只关联已有卡片，`linked` 为真表示这次新建了关联。

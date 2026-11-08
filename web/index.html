@@ -13,8 +13,25 @@
   <aside class="sidebar">
     <div class="sidebar-navigation">
       <a class="brand" href="./" aria-label="PageStudio 首页"><img class="logo" src="./icon.svg" alt=""><span>PageStudio<small>HTML 卡片库</small></span></a>
-      <div class="nav-label">资料库 <button id="manageCategories" class="edit" type="button" aria-haspopup="dialog">管理分类</button></div>
-      <nav id="categories" aria-label="分类"></nav>
+      <div class="library-navigation">
+        <div class="sidebar-tabs" id="libraryTabs" role="tablist" aria-label="资料库视图">
+          <button type="button" id="categoryTab" role="tab" aria-controls="categoryPanel" aria-selected="true">分类</button>
+          <button type="button" id="projectTab" role="tab" aria-controls="projectPanel" aria-selected="false" tabindex="-1">项目</button>
+        </div>
+        <div class="sidebar-tabs library-dock-controls" role="group" aria-label="资料库目录">
+          <button type="button" id="categoryDock" aria-controls="categoryPanel" aria-expanded="false">分类</button>
+          <button type="button" id="projectDock" aria-controls="projectPanel" aria-expanded="false">项目</button>
+        </div>
+        <div class="library-directory" id="categoryPanel" role="tabpanel" aria-labelledby="categoryTab">
+          <div class="nav-label"><span>资料库分类</span><button id="manageCategories" class="edit" type="button" aria-haspopup="dialog">管理分类</button></div>
+          <nav id="categories" aria-label="分类"></nav>
+        </div>
+        <div class="library-directory" id="projectPanel" role="tabpanel" aria-labelledby="projectTab" hidden>
+          <div class="nav-label"><span>任务资料</span><button id="newProject" class="edit" type="button" aria-haspopup="dialog">＋ 新建项目</button></div>
+          <nav id="projects" aria-label="项目"></nav>
+          <p id="projectsEmpty" class="nav-empty" hidden>新建项目，把同一任务的卡片收在一起。</p>
+        </div>
+      </div>
     </div>
     <div class="local">
       <i aria-hidden="true"></i>
@@ -37,7 +54,7 @@
       </section>
       <section id="drop" aria-label="导入文件">
         <div class="drop-icon" aria-hidden="true">↥</div>
-        <div class="drop-text"><strong>拖入 HTML，放上书架</strong><span>自动提取标题和摘要，跳过重复文件，新卡片进入「待归类」。</span></div>
+        <div class="drop-text"><strong id="dropTitle">拖入 HTML，放上书架</strong><span id="dropHint">自动提取标题和摘要，跳过重复文件，新卡片进入「待归类」。</span></div>
         <div class="import-buttons"><button class="secondary" id="pickFolder">选择文件夹</button><button class="primary" id="pick">选择文件</button></div>
         <input type="file" id="files" multiple accept=".html,.htm,text/html" hidden>
         <input type="file" id="folder" webkitdirectory multiple hidden>
@@ -84,7 +101,7 @@
   </dialog>
   <dialog id="creator" class="creator" aria-labelledby="createTitle">
     <form id="createForm">
-      <div class="dialog-head"><div><div class="eyebrow">待归类</div><h2 id="createTitle">新建 HTML</h2></div><button type="button" class="icon close" aria-label="关闭">×</button></div>
+      <div class="dialog-head"><div><div id="createScope" class="eyebrow">待归类</div><h2 id="createTitle">新建 HTML</h2></div><button type="button" class="icon close" aria-label="关闭">×</button></div>
       <label>文件名<input id="createName" maxlength="240" placeholder="我的笔记.html" required autofocus></label>
       <label>HTML 源码<textarea id="createCode" class="create-code" rows="12" spellcheck="false" required></textarea></label>
       <p class="status" id="createStatus" role="status" hidden></p>
@@ -98,6 +115,11 @@
       <label>文件名<input id="editFilename" maxlength="255" required></label>
       <label>分类<select id="editCategory"></select></label>
       <label>标签<input id="editTags" maxlength="250" placeholder="用逗号分隔，例如：Matlab，轮轨"></label>
+      <fieldset class="edit-projects">
+        <legend>所属项目</legend>
+        <div id="editProjectOptions"></div>
+        <p id="editProjectsEmpty" hidden>在侧栏的「项目」中创建项目后，即可把卡片加入其中。</p>
+      </fieldset>
       <p class="status" id="editStatus" role="status" hidden></p>
       <div class="dialog-actions"><button type="button" id="deleteCard" class="secondary danger">删除卡片</button><button type="button" class="secondary close">取消</button><button class="primary" type="submit">保存</button></div>
     </form>
@@ -125,6 +147,21 @@
       </form>
       <p id="categoryStatus" class="status" role="status" hidden></p>
     </footer>
+  </dialog>
+  <dialog id="projectDialog" aria-labelledby="projectTitle">
+    <form id="projectForm">
+      <div class="dialog-head">
+        <div><div class="eyebrow">任务资料</div><h2 id="projectTitle">新建项目</h2></div>
+        <button type="button" class="icon close" aria-label="关闭">×</button>
+      </div>
+      <label>项目名称<input id="projectName" maxlength="40" placeholder="例如：河岸步道调研" required autofocus></label>
+      <p id="projectStatus" class="status" role="status" hidden></p>
+      <div class="dialog-actions">
+        <button type="button" id="deleteProject" class="secondary danger project-delete" hidden>删除项目</button>
+        <button type="button" class="secondary close">取消</button>
+        <button id="projectSubmit" class="primary" type="submit">创建项目</button>
+      </div>
+    </form>
   </dialog>
   <dialog id="confirmDialog" aria-labelledby="confirmTitle" aria-describedby="confirmText">
     <form id="confirmForm">

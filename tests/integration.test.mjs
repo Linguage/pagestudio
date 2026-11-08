@@ -364,6 +364,75 @@ test('old cards gain editable summaries with a shared length and version check',
   assert.equal(library.list().cards[0].category, '内容创作');
 });
 
+test('projects keep independent, persistent card memberships in an existing library', async t => {
+  const { library, directory } = await workspace(t);
+  const raw = Buffer.from('<title>现有报告</title><p>步道调研</p>');
+  const card = library.ingest('report.html', raw, { title: '现有报告' }, '工程技术');
+  library.saveSummary(card.id, '已有摘要', 0);
+  library.close();
+  const legacy = new DatabaseSync(join(directory, 'library.sqlite'));
+  legacy.exec('DROP TABLE project_cards; DROP TABLE projects');
+  legacy.close();
+
+  const handle = createHandler(library);
+  const headers = { 'x-html-cards': 'local', origin: 'dsh-app://app' };
+  const post = (path, value) => request(handle, path, { method: 'POST', headers,
+    body: Buffer.isBuffer(value) ? value : Buffer.from(JSON.stringify(value)) });
+  const listing = async (params = {}) => JSON.parse((await request(handle, '/api/cards?' + new URLSearchParams(params))).data);
+  const changeProject = input => post('/api/projects', input);
+  const list = await listing();
+  assert.deepEqual(list.projects, []);
+  assert.deepEqual(list.cards[0].projectIds, []);
+  const first = await changeProject({ action: 'add', name: '调研' });
+  assert.equal(first.status, 201);
+  const research = JSON.parse(first.data);
+  const report = JSON.parse((await changeProject({ action: 'add', name: '报告' })).data);
+  assert.equal((await changeProject({ action: 'add', name: '调研' })).status, 400);
+  assert.equal((await changeProject({ action: 'rename', id: research.id, name: '报告' })).status, 400);
+  assert.equal((await request(handle, '/api/projects', { method: 'POST' })).status, 403);
+
+  const edit = projects => post('/api/card/' + card.id, {
+    title: '现有报告', category: '工程技术', tags: [], projects,
+  });
+  assert.equal((await edit({ add: [research.id] })).status, 200);
+  const duplicate = JSON.parse((await post('/api/import?name=copy.html&projectId=' + report.id, raw)).data);
+  assert.equal(duplicate.id, card.id);
+  assert.equal(duplicate.duplicate, true);
+  assert.equal(duplicate.linked, true);
+  assert.equal(JSON.parse((await post('/api/import?name=copy.html&projectId=' + report.id, raw)).data).linked, false);
+  assert.equal((await listing()).total, 1);
+  assert.deepEqual(new Set((await listing()).cards[0].projectIds), new Set([research.id, report.id]));
+  assert.equal((await listing()).cards[0].method, 'archive');
+
+  const created = JSON.parse((await post('/api/create?name=note.html&projectId=' + research.id,
+    Buffer.from('<title>新笔记</title>'))).data);
+  assert.equal(created.category, '待归类');
+  assert.equal((await listing({ projectId: research.id })).total, 2);
+  assert.equal((await listing({ projectId: report.id, q: '已有摘要' })).cards[0].id, card.id);
+  assert.equal((await listing({ projectId: report.id, q: '新笔记' })).total, 0);
+  const missing = '0'.repeat(64);
+  assert.equal((await post('/api/import?name=stale.html&projectId=' + missing, Buffer.from('<p>无效项目</p>'))).status, 400);
+  assert.equal((await edit({ remove: [research.id], add: [missing] })).status, 400);
+  assert.equal((await listing()).total, 2);
+  assert.equal((await listing({ projectId: research.id })).total, 2);
+
+  const renamed = JSON.parse((await changeProject({ action: 'rename', id: research.id, name: '河岸调研' })).data);
+  assert.deepEqual(renamed, { id: research.id, name: '河岸调研' });
+  assert.equal((await edit({ remove: [report.id] })).status, 200);
+  assert.equal((await listing({ projectId: report.id })).total, 0);
+  library.close();
+  const reopened = await listing();
+  assert.deepEqual(reopened.projects, [{ ...renamed, count: 2 }, { ...report, count: 0 }]);
+  assert.equal((await changeProject({ action: 'remove', id: research.id })).status, 200);
+  assert.equal((await listing({ projectId: research.id })).total, 0);
+  assert.equal((await listing()).total, 2);
+  assert.equal((await listing({ category: '工程技术' })).cards[0].summary, '已有摘要');
+  assert.deepEqual(Buffer.from(library.file(card.id).raw), raw);
+  assert.equal((await edit({ add: [report.id] })).status, 200);
+  assert.equal((await post('/api/card/' + card.id + '/delete', {})).status, 200);
+  assert.deepEqual((await listing()).projects, [{ ...report, count: 0 }]);
+});
+
 test('bundled DSH authoring skills generate and import into the existing library', async t => {
   const { directory, library } = await workspace(t);
   const cleanup = [];
@@ -397,6 +466,7 @@ test('bundled DSH authoring skills generate and import into the existing library
 
   const skills = await provider.list();
   assert.deepEqual(skills.map(({ name }) => name), ['html-cards-organize', 'html-cards-create', 'html-cards-import', 'html-cards-normalize-deck']);
+  assert.match((await provider.get(skills[0])).content, /html_cards_update_project_cards/);
   assert.match((await provider.get(skills[1])).content, /html_cards_create_article/);
   assert.match((await provider.get(skills[2])).content, /html_cards_import/);
   const source = '现场观测先记时间。\n\n复核结果时保留记录。';
@@ -410,11 +480,16 @@ test('bundled DSH authoring skills generate and import into the existing library
     quote: { kind: 'quote', text: '现场观测先记时间。', sourceIds: ['P001'] },
   };
   const execution = { agent: {}, signal: new AbortController().signal };
+  const call = async (name, args) => JSON.parse(await tools.get(name).execute(args, execution));
+  const research = await call('html_cards_create_project', { name: '现场调研' });
+  assert.deepEqual(await call('html_cards_projects', {}), [{ ...research, count: 0 }]);
   const create = tools.get('html_cards_create_article').execute;
   await assert.rejects(create({ source, card_json: JSON.stringify({ ...card, quote: { ...card.quote, text: '编造的引语' } }) }, execution), /原文引语/);
   assert.equal(library.list().total, 0);
   await writeFile(join(directory, 'article.md'), source);
-  const generated = JSON.parse(await create({ source_path: 'article.md', card_json: JSON.stringify(card) }, execution));
+  const generated = JSON.parse(await create({
+    source_path: 'article.md', card_json: JSON.stringify(card), project_id: research.id,
+  }, execution));
   assert.equal(generated.category, '待归类');
   assert.equal(generated.quoteVerified, true);
   assert.deepEqual(generated.canvas, { count: 2, width: 900, height: 1200 });
@@ -431,6 +506,21 @@ test('bundled DSH authoring skills generate and import into the existing library
   assert.equal(imported.filename, '对话产物.html');
   assert.deepEqual(Buffer.from(library.file(imported.id).raw), Buffer.from(standalone));
   assert.equal(library.list({ category: '待归类' }).total, 2);
+  const found = await call('html_cards_find_project_cards', { query: '对话产物' });
+  assert.equal(found.cards[0].id, imported.id);
+  assert.deepEqual(found.cards[0].projectIds, []);
+  const membership = { project_id: research.id, card_ids: [imported.id], action: 'add' };
+  await assert.rejects(call('html_cards_update_project_cards', {
+    ...membership, card_ids: [imported.id, '0'.repeat(64)],
+  }), /卡片已不存在/);
+  assert.equal((await call('html_cards_find_project_cards', { project_id: research.id })).total, 1);
+  assert.deepEqual(await call('html_cards_update_project_cards', membership), { added: 1, alreadyLinked: 0 });
+  assert.deepEqual(await call('html_cards_update_project_cards', membership), { added: 0, alreadyLinked: 1 });
+  assert.deepEqual(await call('html_cards_update_project_cards', { ...membership, action: 'remove' }), { removed: 1, notLinked: 0 });
+  const linked = await call('html_cards_import', { html: standalone, project_id: research.id });
+  assert.equal(linked.id, imported.id);
+  assert.equal(linked.linked, true);
+  assert.equal(library.details(imported.id).category, '待归类');
   const detailsRoute = '/api/card/' + imported.id + '/details';
   const handle = createHandler(library);
   const initial = JSON.parse((await request(handle, detailsRoute)).data);
@@ -465,10 +555,11 @@ test('bundled DSH authoring skills generate and import into the existing library
   await writeFile(join(project, 'slides', 'a.html'), slides.a);
   const asset = '<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40"><rect width="40" height="40"/></svg>';
   await writeFile(join(project, 'assets', 'shape.svg'), asset);
-  const deck = JSON.parse(await importHtml({ deck_path: 'talk' }, execution));
+  const deck = JSON.parse(await importHtml({ deck_path: 'talk', project_id: research.id }, execution));
   assert.equal(deck.slides, 2);
   assert.equal(deck.category, '待归类');
   assert.deepEqual(deck.missingAssets, []);
+  assert.equal((await call('html_cards_find_project_cards', { project_id: research.id })).total, 3);
   const html = Buffer.from(library.file(deck.id).raw).toString();
   assert.match(html, /<section id="b">[\s\S]*<section id="a">/);
   assert(html.includes('data:image/svg+xml;base64,' + Buffer.from(asset).toString('base64')));
@@ -477,12 +568,15 @@ test('bundled DSH authoring skills generate and import into the existing library
   for (const [key, body] of Object.entries({ 'deck.json': JSON.stringify(manifest),
     'slides/a.html': slides.a, 'slides/b.html': slides.b, 'assets/shape.svg': asset })) form.append(key, new Blob([body]), key);
   const multipart = new Response(form);
-  const uploaded = await request(handle, '/api/import-deck', {
+  const collection = library.addProject('演示资料');
+  const uploaded = await request(handle, '/api/import-deck?projectId=' + collection.id, {
     method: 'POST', headers: { 'x-html-cards': 'local', 'content-type': multipart.headers.get('content-type') },
     body: Buffer.from(await multipart.arrayBuffer()),
   });
   assert.equal(uploaded.status, 201);
   assert.equal(JSON.parse(uploaded.data).id, deck.id);
   assert.equal(JSON.parse(uploaded.data).duplicate, true);
+  assert.equal(JSON.parse(uploaded.data).linked, true);
+  assert.equal(library.list({ projectId: collection.id }).cards[0].id, deck.id);
   assert.equal(library.list().total, 3);
 });

@@ -7,7 +7,8 @@ const colors = {
   '思想与人文':['#a96c83','#f5eaf0','#453140'], '其他':['#7e7669','#eee8dc','#3b352e'],
   '待归类':['#907e6c','#f0ede7','#3c3530']
 };
-let category = '', page = 1, state, editing, importing = false;
+let sidebarMode = 'category', category = '', projectId = '', page = 1, state, editing, importing = false;
+let editingProject, creationProject, savingProject = false;
 let activeRequest, timer, dragDepth = 0;
 let readerItem, readerRequest, readerSource;
 let summaryEditor;
@@ -47,6 +48,29 @@ function tint(node, cat) {
   node.style.setProperty('--tint', dot);
   node.style.setProperty('--chip', light);
   node.style.setProperty('--chip-dark', dark);
+}
+function activateTab(tabs, selected) {
+  for (const tab of tabs) {
+    const active = tab === selected;
+    tab.setAttribute('aria-selected', String(active));
+    tab.tabIndex = active ? 0 : -1;
+    $(tab.getAttribute('aria-controls')).hidden = !active;
+  }
+}
+function bindTabs(id, selectTab) {
+  const list = $(id);
+  const tabs = [...list.querySelectorAll('[role=tab]')];
+  for (const tab of tabs) tab.onclick = () => selectTab(tab);
+  list.addEventListener('keydown', event => {
+    const index = tabs.indexOf(event.target);
+    const last = tabs.length - 1;
+    const next = { ArrowLeft: (index + last) % tabs.length, ArrowRight: (index + 1) % tabs.length, Home: 0, End: last };
+    if (index < 0 || !Object.hasOwn(next, event.key)) return;
+    event.preventDefault();
+    tabs[next[event.key]].focus();
+    selectTab(tabs[next[event.key]]);
+  });
+  return tabs;
 }
 function followTheme() {
   let host;
@@ -162,6 +186,7 @@ $('storageForm').onsubmit = async event => {
     $('storageDialog').close();
     $('search').value = '';
     category = '';
+    projectId = '';
     page = 1;
     message('status', create ? '已新建资料库。' : '已切换资料库。');
     await refresh();
@@ -175,12 +200,21 @@ async function refresh() {
   activeRequest?.abort();
   const ctrl = new AbortController();
   activeRequest = ctrl;
-  const params = new URLSearchParams({q:$('search').value, category, page});
+  const params = new URLSearchParams({q:$('search').value, page});
+  if (sidebarMode === 'category' && category) params.set('category', category);
+  if (sidebarMode === 'project' && projectId) params.set('projectId', projectId);
   try {
     const result = await request('./api/cards?' + params, {signal:ctrl.signal});
     if (ctrl.signal.aborted) return;
     state = result;
-    if (category && !result.categories.includes(category)) return select('');
+    if (category && !result.categories.includes(category)) {
+      category = '';
+      if (sidebarMode === 'category') return selectCategory('');
+    }
+    if (projectId && !result.projects.some(project => project.id === projectId)) {
+      projectId = '';
+      if (sidebarMode === 'project') return selectProject('');
+    }
     if (page > 1 && !result.cards.length) {
       page = Math.max(1, Math.ceil(result.total / 30));
       await refresh();
@@ -191,31 +225,114 @@ async function refresh() {
     if (error.name !== 'AbortError') message('status', '读取资料库失败：' + error.message, true);
   }
 }
-function select(cat) {
+const compactLibrary = matchMedia('(max-width: 650px)');
+let openDirectory = '';
+const libraryTabs = bindTabs('libraryTabs', tab => {
+  const mode = tab.id === 'projectTab' ? 'project' : 'category';
+  if (mode === sidebarMode) return;
+  setLibraryMode(mode);
+  page = 1;
+  refresh();
+});
+function setLibraryMode(mode) {
+  sidebarMode = mode;
+  if (!compactLibrary.matches) activateTab(libraryTabs, $(mode + 'Tab'));
+}
+const dockModes = ['category', 'project'];
+function showDirectory(mode = '') {
+  openDirectory = mode;
+  for (const name of dockModes) {
+    const toggle = $(name + 'Dock');
+    const panel = $(name + 'Panel');
+    const expanded = compactLibrary.matches && name === mode;
+    toggle.setAttribute('aria-expanded', String(expanded));
+    panel.setAttribute('role', compactLibrary.matches ? 'region' : 'tabpanel');
+    panel.setAttribute('aria-labelledby', compactLibrary.matches ? toggle.id : name + 'Tab');
+    panel.hidden = !expanded;
+  }
+  if (!compactLibrary.matches) activateTab(libraryTabs, $(sidebarMode + 'Tab'));
+}
+function closeDirectory(restoreFocus = false) {
+  if (!openDirectory) return;
+  const toggle = $(openDirectory + 'Dock');
+  showDirectory();
+  if (restoreFocus) toggle.focus({preventScroll: true});
+}
+for (const mode of dockModes) {
+  $(mode + 'Dock').onclick = () => showDirectory(openDirectory === mode ? '' : mode);
+}
+compactLibrary.addEventListener('change', () => showDirectory());
+document.addEventListener('click', event => {
+  if (openDirectory && !event.target.closest('.library-navigation, dialog')) closeDirectory();
+});
+document.addEventListener('keydown', event => {
+  if (event.key !== 'Escape' || !openDirectory || document.querySelector('dialog[open]')) return;
+  event.preventDefault();
+  closeDirectory(true);
+});
+showDirectory();
+function selectCategory(cat) {
+  setLibraryMode('category');
   category = cat;
   page = 1;
   refresh();
 }
+function selectProject(id) {
+  setLibraryMode('project');
+  projectId = id;
+  page = 1;
+  refresh();
+}
+function activeProject() {
+  return sidebarMode === 'project' ? state?.projects.find(project => project.id === projectId) : undefined;
+}
+function navButton(label, count, selected, action) {
+  const button = el('button', 'nav-item');
+  button.type = 'button';
+  button.title = label;
+  button.append(el('span', 'swatch'), el('span', 'nav-name', label), el('span', 'nav-count', count));
+  button.setAttribute('aria-current', String(selected));
+  button.onclick = () => {
+    action();
+    closeDirectory(true);
+  };
+  return button;
+}
 function render() {
   const all = Object.values(state.counts).reduce((a,b) => a + b, 0);
-  const label = category || '全部文件';
+  const project = activeProject();
+  const currentCategory = sidebarMode === 'category' ? category : '';
+  const label = project?.name || currentCategory || '全部文件';
   $('location').textContent = label;
   $('heading').textContent = label;
   $('count').textContent = state.total + ' 个文件';
   $('categories').replaceChildren(...['', ...state.categories].map(cat => {
-    const b = el('button', 'nav-item');
-    b.append(el('span', 'swatch'), el('span', '', cat || '全部文件'),
-             el('span', 'nav-count', cat ? state.counts[cat] || 0 : all));
-    b.setAttribute('aria-current', String(cat === category));
-    b.onclick = () => select(cat);
+    const b = navButton(cat || '全部文件', cat ? state.counts[cat] || 0 : all, cat === category, () => selectCategory(cat));
     tint(b, cat);
     return b;
   }));
+  $('projects').replaceChildren(navButton('全部文件', all, !projectId, () => selectProject('')), ...state.projects.map(item => {
+    const row = el('div', 'project-row');
+    const settings = el('button', 'edit project-settings', '⋯');
+    settings.type = 'button';
+    settings.setAttribute('aria-label', '项目设置 ' + item.name);
+    settings.setAttribute('aria-haspopup', 'dialog');
+    settings.title = '项目设置';
+    settings.onclick = () => openProjectSettings(item);
+    row.append(navButton(item.name, item.count, item.id === projectId, () => selectProject(item.id)), settings);
+    return row;
+  }));
+  $('projectsEmpty').hidden = state.projects.length > 0;
+  $('dropTitle').textContent = project ? '拖入 HTML，加入当前项目' : '拖入 HTML，放上书架';
+  $('dropHint').textContent = project ? '新文件进入「待归类」。已收录的文件会加入此项目。'
+    : '自动提取标题和摘要，跳过重复文件，新卡片进入「待归类」。';
   const cards = state.cards.map(makeCard);
   if (!cards.length) {
     const box = el('div', 'empty');
     if ($('search').value.trim()) box.append(el('strong','', '没有找到匹配的文件'), el('span','', '试试另一个关键词。'));
-    else if (category) box.append(el('strong','', '这个分类暂时没有文件'), el('span','', category === pending ? '新建和导入的文件会出现在这里。' : '整理待归类卡片后，归到这一类的文件会出现在这里。'));
+    else if (project) box.append(el('strong','', '这个项目暂时没有文件'),
+      el('span','', '可以直接导入或新建 HTML，也可以在已有卡片的「编辑」中选择此项目。'));
+    else if (currentCategory) box.append(el('strong','', '这个分类暂时没有文件'), el('span','', currentCategory === pending ? '新建和导入的文件会出现在这里。' : '整理待归类卡片后，归到这一类的文件会出现在这里。'));
     else box.append(el('strong','', '书架还是空的'), el('span','', '把 .html 或 .htm 文件拖进来，开始收集。'));
     cards.push(box);
   }
@@ -389,6 +506,54 @@ $('categoryForm').onsubmit = async event => {
     button.disabled = false;
   }
 };
+function openProjectSettings(item) {
+  if (savingProject) return;
+  editingProject = item;
+  $('projectTitle').textContent = item ? '项目设置' : '新建项目';
+  $('projectName').value = item?.name || '';
+  $('projectSubmit').textContent = item ? '保存名称' : '创建项目';
+  $('deleteProject').hidden = !item;
+  message('projectStatus', '');
+  $('projectDialog').showModal();
+}
+function changeProject(input) {
+  return post('./api/projects', JSON.stringify(input), 'application/json');
+}
+$('newProject').onclick = () => openProjectSettings();
+$('projectForm').onsubmit = async event => {
+  event.preventDefault();
+  if (savingProject) return;
+  const item = editingProject;
+  const name = $('projectName').value;
+  savingProject = $('projectSubmit').disabled = $('deleteProject').disabled = true;
+  try {
+    const saved = await changeProject({action: item ? 'rename' : 'add', id: item?.id, name});
+    $('projectDialog').close();
+    if (!item) {
+      $('search').value = '';
+      setLibraryMode('project');
+      projectId = saved.id;
+      page = 1;
+      closeDirectory(true);
+    }
+    message('status', (item ? '已重命名项目「' : '已创建项目「') + saved.name + '」。');
+    await refresh();
+  } catch (error) {
+    message('projectStatus', error.message, true);
+  } finally {
+    savingProject = $('projectSubmit').disabled = $('deleteProject').disabled = false;
+  }
+};
+$('deleteProject').onclick = () => {
+  const { id, name } = editingProject;
+  confirmAction('删除项目', '删除「' + name + '」后，其中的卡片仍保留在资料库。', '删除项目', async () => {
+    await changeProject({action: 'remove', id});
+    if (projectId === id) { projectId = ''; page = 1; }
+    $('projectDialog').close();
+    await refresh();
+    message('status', '已删除项目，卡片保留在资料库。');
+  });
+};
 function makeCard(item) {
   const card = el('article', 'card');
   tint(card, item.category);
@@ -405,7 +570,11 @@ function makeCard(item) {
     const tags = el('div', 'tags');
     for (const tag of item.tags) {
       const chip = el('button', '', tag);
-      chip.onclick = () => {$('search').value = tag; select('');};
+      chip.onclick = () => {
+        $('search').value = tag;
+        if (sidebarMode === 'project') selectProject(projectId);
+        else selectCategory('');
+      };
       tags.append(chip);
     }
     card.append(tags);
@@ -462,29 +631,14 @@ function syncReaderTheme() {
   }, '*');
 }
 $('frame').addEventListener('load', syncReaderTheme);
-const readerTabs = [...$('readerTabs').querySelectorAll('[role=tab]')];
+const readerTabs = bindTabs('readerTabs', selectReaderTab);
 function selectReaderTab(selected) {
-  for (const tab of readerTabs) {
-    const active = tab === selected;
-    tab.setAttribute('aria-selected', String(active));
-    tab.tabIndex = active ? 0 : -1;
-    $(tab.getAttribute('aria-controls')).hidden = !active;
-  }
+  activateTab(readerTabs, selected);
   $('readerZoom').hidden = selected.id !== 'renderTab';
   $('exportImages').hidden = !exportAvailable || selected.id !== 'renderTab';
   if (selected.id === 'summaryTab') loadSummary();
   if ((selected.id === 'codeTab' || selected.id === 'textTab') && !readerRequest) loadReaderSource();
 }
-for (const tab of readerTabs) tab.onclick = () => selectReaderTab(tab);
-$('readerTabs').addEventListener('keydown', event => {
-  const index = readerTabs.indexOf(event.target);
-  const last = readerTabs.length - 1;
-  const next = { ArrowLeft: (index + last) % readerTabs.length, ArrowRight: (index + 1) % readerTabs.length, Home: 0, End: last };
-  if (index < 0 || !Object.hasOwn(next, event.key)) return;
-  event.preventDefault();
-  readerTabs[next[event.key]].focus();
-  selectReaderTab(readerTabs[next[event.key]]);
-});
 const detailInputs = ['summaryTitle', 'summaryCategory', 'summaryTags', 'summaryText'];
 function detailsDraft() {
   const tagText = $('summaryTags').value;
@@ -750,6 +904,17 @@ function showEditor(item) {
   $('editCategory').replaceChildren(...state.categories.map(cat => new Option(cat, cat)));
   $('editCategory').value = item.category;
   $('editTags').value = item.tags.join('，');
+  const memberships = new Set(item.projectIds);
+  $('editProjectOptions').replaceChildren(...state.projects.map(({id, name}) => {
+    const label = el('label');
+    const checkbox = el('input');
+    checkbox.type = 'checkbox';
+    checkbox.value = id;
+    checkbox.defaultChecked = memberships.has(id);
+    label.append(checkbox, el('span', '', name));
+    return label;
+  }));
+  $('editProjectsEmpty').hidden = state.projects.length > 0;
   $('editor').showModal();
 }
 $('reader').addEventListener('close', () => {
@@ -778,6 +943,8 @@ $('confirmDialog').addEventListener('cancel', event => {
   if ($('confirmSubmit').disabled) event.preventDefault();
 });
 $('create').onclick = () => {
+  creationProject = activeProject();
+  $('createScope').textContent = creationProject ? '项目 · ' + creationProject.name : pending;
   $('createName').value = '';
   $('createCode').value = starterHtml;
   message('createStatus', '');
@@ -790,14 +957,22 @@ $('createForm').onsubmit = async event => {
   const source = $('createCode').value;
   if (!name || !source.trim()) return message('createStatus', '请填写文件名和 HTML 源码。', true);
   const filename = /\.html?$/i.test(name) ? name : name + '.html';
+  const project = creationProject;
+  const params = new URLSearchParams({name:filename});
+  if (project) params.set('projectId', project.id);
   submit.disabled = true;
   try {
-    const item = await post('./api/create?' + new URLSearchParams({name:filename}), source, 'text/html; charset=utf-8');
-    if (item.duplicate) return message('createStatus', '相同的 HTML 已在卡片库中：' + item.filename, true);
+    const item = await post('./api/create?' + params, source, 'text/html; charset=utf-8');
+    if (item.duplicate && !item.linked) return message('createStatus', '相同的 HTML 已在卡片库中：' + item.filename, true);
     $('creator').close();
     $('search').value = '';
-    select(pending);
-    message('status', '已创建并加入「待归类」 · ' + item.filename);
+    if (project) {
+      selectProject(project.id);
+      message('status', (item.duplicate ? '已将已有卡片加入「' : '已创建并加入「') + project.name + '」 · ' + item.filename);
+    } else {
+      selectCategory(pending);
+      message('status', '已创建并加入「待归类」 · ' + item.filename);
+    }
     showReader(item);
   } catch (error) {
     message('createStatus', error.message, true);
@@ -809,10 +984,15 @@ $('editForm').onsubmit = async (event) => {
   event.preventDefault();
   const b = event.currentTarget.querySelector('[type=submit]');
   b.disabled = true;
+  const projects = {add: [], remove: []};
+  for (const input of $('editProjectOptions').querySelectorAll('input')) {
+    if (input.checked !== input.defaultChecked) projects[input.checked ? 'add' : 'remove'].push(input.value);
+  }
   try {
     await post('./api/card/' + editing.id, JSON.stringify({
       title:$('editTitle').value, category:$('editCategory').value, tags:$('editTags').value.split(/[，,]/),
       filename: $('editFilename').value === editing.filename ? undefined : $('editFilename').value,
+      projects: projects.add.length || projects.remove.length ? projects : undefined,
     }), 'application/json');
     $('editor').close();
     await refresh();
@@ -824,7 +1004,7 @@ $('editForm').onsubmit = async (event) => {
 };
 $('deleteCard').onclick = () => {
   const { id, title } = editing;
-  confirmAction('删除卡片', '「' + title + '」及其摘要将从当前资料库永久删除。', '删除卡片', async () => {
+  confirmAction('删除卡片', '「' + title + '」将从资料库及所属项目中永久删除。', '删除卡片', async () => {
     await post('./api/card/' + id + '/delete');
     $('editor').close();
     await refresh();
@@ -883,8 +1063,10 @@ async function upload(files) {
     message('status', '请拖入 .html 或 .htm 文件。整批文件可以用「选择文件夹」导入。', true);
     return;
   }
+  const project = activeProject();
+  const projectParams = project ? {projectId: project.id} : {};
   importing = $('pick').disabled = $('pickFolder').disabled = true;
-  let added = 0, duplicates = 0;
+  let added = 0, duplicates = 0, linked = 0;
   const errors = [];
   const decks = [];
   for (const [index, manifest] of manifests.entries()) {
@@ -898,8 +1080,9 @@ async function upload(files) {
     }
     message('status', '正在导入整套幻灯片 · ' + root);
     try {
-      const result = await post('./api/import-deck', form);
-      if (result.duplicate) duplicates++;
+      const result = await post('./api/import-deck' + (project ? '?' + new URLSearchParams(projectParams) : ''), form);
+      if (result.linked) linked++;
+      else if (result.duplicate) duplicates++;
       else added++;
       const missing = result.missingAssets.length ? '，未找到部分资源' : '';
       decks.push(result.title + '（' + result.slides + ' 页' + missing + '）');
@@ -911,22 +1094,36 @@ async function upload(files) {
     const file = html[i];
     message('status', '正在导入 ' + (i + 1) + ' / ' + html.length + ' · ' + file.name);
     try {
-      const result = await post('./api/import?' + new URLSearchParams({name:file.name}), file, 'application/octet-stream');
-      if (result.duplicate) duplicates++;
+      const result = await post('./api/import?' + new URLSearchParams({name:file.name, ...projectParams}), file, 'application/octet-stream');
+      if (result.linked) linked++;
+      else if (result.duplicate) duplicates++;
       else added++;
     } catch (e) {
       errors.push(file.name + '：' + e.message);
     }
   }
-  const parts = [added + ' 个已导入'];
-  if (added) parts.push('已放入「待归类」');
+  const parts = [];
+  if (added || !linked) parts.push(added + ' 个已导入');
+  if (linked) parts.push(linked + ' 个已有文件已加入');
+  if (project && (added || linked)) parts.push('项目「' + project.name + '」');
+  else if (added) parts.push('已放入「待归类」');
   if (duplicates) parts.push(duplicates + ' 个重复');
   if (!manifests.length && files.length > html.length) parts.push((files.length - html.length) + ' 个非 HTML 已跳过');
   if (errors.length) parts.push(errors.length + ' 个失败');
   message('status', [parts.join(' · '), ...decks, ...errors.slice(0,3)].join('\n'), errors.length > 0);
   importing = $('pick').disabled = $('pickFolder').disabled = false;
-  if (added) $('search').value = '';
-  select(added ? pending : category);
+  if (project) {
+    if ((added || linked) && activeProject()?.id === project.id) {
+      $('search').value = '';
+      page = 1;
+    }
+    refresh();
+  } else if (added) {
+    $('search').value = '';
+    selectCategory(pending);
+  } else {
+    refresh();
+  }
 }
 $('ai').onclick = () => {
   if (!state) return;
