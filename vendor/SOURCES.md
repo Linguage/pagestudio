@@ -9,4 +9,4 @@ See the accompanying license files.
 
 ## 文章信息卡
 
-`article-cards/render.mjs` 及 `article-cards/validate.mjs` 来自本地 `dsh-article-cards` 0.1.0。前者保留原渲染器，后者保留内容验证、段落映射及文档摘要逻辑。配套模板说明随 `html-cards-create` 技能分发。许可见 `article-cards/LICENSE`。
+`article-cards/render.mjs` 及 `article-cards/validate.mjs` 是随 PageStudio 分发的文章信息卡组件，由 PageStudio 作者开发，分别用于渲染和内容校验。原版权与许可见 `article-cards/LICENSE`。
