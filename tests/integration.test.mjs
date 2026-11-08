@@ -221,6 +221,42 @@ test('custom categories survive reopening and removing them preserves their card
   }
 });
 
+test('renaming a category keeps its order, cards, and current suggestions', async t => {
+  const { library, directory } = await workspace(t);
+  const card = library.ingest('work.html', Buffer.from('<p>工作</p>'), {}, '工程技术');
+  library.saveSummary(card.id, '原有摘要', 0);
+  library.edit(card.id, { title: '工作笔记', category: '工程技术', tags: ['记录'] });
+  const before = library.details(card.id);
+  library.suggestDetails(card.id, { ...before, summary: '建议摘要' });
+  const pendingCard = library.ingest('idea.html', Buffer.from('<p>想法</p>'));
+  library.suggestDetails(pendingCard.id, { ...library.details(pendingCard.id), category: '工程技术', summary: '分类建议' });
+  const order = library.categories();
+  const handle = createHandler(library);
+  const rename = (name, newName) => request(handle, '/api/categories', {
+    method: 'POST', headers: { 'x-html-cards': 'local' },
+    body: Buffer.from(JSON.stringify({ action: 'rename', name, newName })),
+  });
+  assert.equal((await rename('工程技术', '其他')).status, 400);
+  assert.equal((await rename('待归类', '未分类')).status, 400);
+  assert.equal((await rename('工程技术', '待归类')).status, 400);
+  assert.equal((await rename('工程技术', '工程笔记')).status, 200);
+  assert.equal((await rename('工程技术', '又一次')).status, 404);
+  const reopened = createLibrary(directory);
+  try {
+    assert.deepEqual(reopened.categories(), order.map(name => name === '工程技术' ? '工程笔记' : name));
+    const after = reopened.details(card.id);
+    assert.notEqual(after.version, before.version);
+    assert.deepEqual(after.tags, ['记录']);
+    assert.equal(after.summary, '原有摘要');
+    assert.equal(after.category, '工程笔记');
+    assert.equal(after.suggestion.category, '工程笔记');
+    assert.equal(reopened.details(pendingCard.id).suggestion.category, '工程笔记');
+    assert.deepEqual(reopened.categoryCatalog().find(item => item.name === '工程笔记'), { name: '工程笔记', count: 1 });
+  } finally {
+    reopened.close();
+  }
+});
+
 test('HTTP import guards writes, retains original bytes, and AI skips manual classification', async t => {
   const { directory, library } = await workspace(t);
   const handle = createHandler(library);

@@ -225,7 +225,6 @@ function render() {
   $('pageLabel').textContent = page + ' / ' + last;
   $('prev').disabled = page === 1;
   $('next').disabled = page === last;
-  if ($('categoryDialog').open) renderCategoryList();
 }
 
 function confirmAction(title, description, label, action) {
@@ -248,40 +247,142 @@ function confirmAction(title, description, label, action) {
   $('confirmDialog').showModal();
 }
 
-function renderCategoryList() {
-  $('categoryList').replaceChildren(...(state?.categories ?? []).map(name => {
-    const row = el('li', '', name);
-    if (name !== pending) {
-      const button = el('button', 'edit danger', '删除');
-      button.type = 'button';
-      button.setAttribute('aria-label', '删除分类 ' + name);
-      button.onclick = () => confirmAction('删除分类', '「' + name + '」中的卡片会移到「待归类」。', '删除分类', async () => {
-        const { moved } = await post('./api/categories', JSON.stringify({action: 'remove', name}), 'application/json');
-        if (category === name) { category = ''; page = 1; }
-        await refresh();
-        message('categoryStatus', '已删除分类' + (moved ? '，' + moved + ' 张卡片已移到「待归类」' : '') + '。');
-      });
-      row.append(button);
-    }
-    return row;
-  }));
+let cancelCategoryRename;
+let categoryWrite = false;
+
+async function changeCategory(input, onSaved) {
+  if (categoryWrite) throw Error('正在保存分类，请稍后再试。');
+  categoryWrite = true;
+  try {
+    const result = await post('./api/categories', JSON.stringify(input), 'application/json');
+    const focusName = onSaved(result);
+    await Promise.all([refresh(), loadCategoryList(focusName)]);
+  } finally {
+    categoryWrite = false;
+  }
 }
-$('manageCategories').onclick = () => {
-  $('categoryName').value = '';
+
+async function loadCategoryList(focusName) {
+  const categories = await request('./api/categories');
+  if (!$('categoryDialog').open) return;
+  $('categoryTotals').textContent = (categories.length - 1) + ' 个可编辑分类 · ' +
+    categories.reduce((total, item) => total + item.count, 0) + ' 张卡片';
+  cancelCategoryRename = undefined;
+  $('categoryList').replaceChildren(...categories.map(makeCategoryRow));
+  if (focusName) {
+    const buttons = $('categoryList').querySelectorAll('[data-rename]');
+    [...buttons].find(button => button.dataset.rename === focusName)?.focus();
+  }
+}
+
+function makeCategoryRow({ name, count }) {
+  const row = el('li', 'category-row');
+  tint(row, name);
+  const label = el('div', 'category-identity');
+  label.append(el('span', 'category-dot'), el('strong', '', name));
+  const size = el('span', 'category-size', count + ' 张');
+  const actions = el('div', 'category-actions');
+  row.append(label, size, actions);
+  if (name === pending) {
+    row.classList.add('category-system');
+    actions.append(el('span', 'category-system-label', '系统分类'));
+    return row;
+  }
+  const rename = el('button', 'secondary category-rename', '重命名');
+  rename.type = 'button';
+  rename.dataset.rename = name;
+  rename.setAttribute('aria-label', '重命名分类 ' + name);
+  const remove = el('button', 'edit category-remove', '删除');
+  remove.type = 'button';
+  remove.setAttribute('aria-label', '删除分类 ' + name);
+  actions.append(rename, remove);
+  rename.onclick = () => editCategoryName(row, label, actions, rename, name);
+  remove.onclick = () => {
+    if (categoryWrite) return;
+    confirmAction('删除分类', '「' + name + '」中的卡片会移到「待归类」。', '删除分类', () =>
+      changeCategory({action: 'remove', name}, ({ moved }) => {
+        if (category === name) { category = ''; page = 1; }
+        message('categoryStatus', '已删除分类' + (moved ? '，' + moved + ' 张卡片已移到「待归类」' : '') + '。');
+      }));
+  };
+  return row;
+}
+
+function editCategoryName(row, label, actions, rename, name) {
+  if (categoryWrite) return;
+  cancelCategoryRename?.();
   message('categoryStatus', '');
-  renderCategoryList();
+  const form = el('form', 'category-rename-form');
+  const input = el('input');
+  input.value = name;
+  input.maxLength = 40;
+  input.required = true;
+  input.setAttribute('aria-label', '新的分类名称');
+  const save = el('button', 'primary', '保存');
+  save.type = 'submit';
+  const cancel = el('button', 'secondary', '取消');
+  cancel.type = 'button';
+  form.append(input, cancel, save);
+  row.append(form);
+  row.classList.add('category-editing');
+  label.hidden = actions.hidden = true;
+  const close = () => {
+    form.remove();
+    row.classList.remove('category-editing');
+    label.hidden = actions.hidden = false;
+    cancelCategoryRename = undefined;
+  };
+  cancelCategoryRename = close;
+  cancel.onclick = () => { close(); rename.focus(); };
+  form.addEventListener('keydown', event => {
+    if (event.key !== 'Escape' || save.disabled) return;
+    event.preventDefault();
+    cancel.click();
+  });
+  form.onsubmit = async event => {
+    event.preventDefault();
+    const newName = input.value;
+    input.disabled = cancel.disabled = save.disabled = true;
+    try {
+      await changeCategory({action: 'rename', name, newName}, saved => {
+        if (category === name) category = saved.name;
+        close();
+        message('categoryStatus', '已保存「' + saved.name + '」。');
+        return saved.name;
+      });
+    } catch (error) {
+      message('categoryStatus', error.message, true);
+    } finally {
+      input.disabled = cancel.disabled = save.disabled = false;
+      if (input.isConnected) input.focus();
+    }
+  };
+  input.focus();
+  input.select();
+}
+
+$('manageCategories').onclick = async () => {
+  $('categoryName').value = '';
+  $('categoryTotals').textContent = '';
+  $('categoryList').replaceChildren();
+  message('categoryStatus', '正在读取分类…');
   $('categoryDialog').showModal();
-  refresh();
+  try {
+    await loadCategoryList();
+    message('categoryStatus', '');
+  } catch (error) {
+    message('categoryStatus', error.message, true);
+  }
 };
 $('categoryForm').onsubmit = async event => {
   event.preventDefault();
   const button = event.submitter;
   button.disabled = true;
   try {
-    const { name } = await post('./api/categories', JSON.stringify({action: 'add', name: $('categoryName').value}), 'application/json');
-    $('categoryName').value = '';
-    await refresh();
-    message('categoryStatus', '已新建「' + name + '」。');
+    await changeCategory({action: 'add', name: $('categoryName').value}, ({ name }) => {
+      $('categoryName').value = '';
+      message('categoryStatus', '已新建「' + name + '」。');
+    });
   } catch (error) {
     message('categoryStatus', error.message, true);
   } finally {

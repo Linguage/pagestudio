@@ -102,14 +102,29 @@
       <div class="dialog-actions"><button type="button" id="deleteCard" class="secondary danger">删除卡片</button><button type="button" class="secondary close">取消</button><button class="primary" type="submit">保存</button></div>
     </form>
   </dialog>
-  <dialog id="categoryDialog" aria-labelledby="categoryTitle">
-    <div class="dialog-head"><h2 id="categoryTitle">管理分类</h2><button type="button" class="icon close" aria-label="关闭">×</button></div>
-    <form id="categoryForm">
-      <label>分类名称<input id="categoryName" maxlength="40" required></label>
-      <div class="dialog-actions"><button type="submit" class="primary">新建分类</button></div>
-    </form>
-    <p id="categoryStatus" class="status" role="status" hidden></p>
-    <ul id="categoryList" class="category-list" aria-label="已有分类"></ul>
+  <dialog id="categoryDialog" aria-labelledby="categoryTitle" class="category-manager">
+    <header class="dialog-head category-header">
+      <div>
+        <div class="eyebrow">资料库设置</div>
+        <h2 id="categoryTitle">管理分类</h2>
+        <p>重命名后，卡片会跟随分类更新。</p>
+      </div>
+      <button type="button" class="icon close" aria-label="关闭" autofocus>×</button>
+    </header>
+    <section class="category-body" aria-labelledby="categoryListTitle">
+      <div class="category-list-heading"><h3 id="categoryListTitle">已有分类</h3><span id="categoryTotals"></span></div>
+      <ul id="categoryList" class="category-list"></ul>
+    </section>
+    <footer class="category-footer">
+      <form id="categoryForm">
+        <label for="categoryName">分类名称</label>
+        <div class="category-create">
+          <input id="categoryName" placeholder="例如：研究笔记" maxlength="40" required>
+          <button type="submit" class="primary"><span aria-hidden="true">＋</span> 新建分类</button>
+        </div>
+      </form>
+      <p id="categoryStatus" class="status" role="status" hidden></p>
+    </footer>
   </dialog>
   <dialog id="confirmDialog" aria-labelledby="confirmTitle" aria-describedby="confirmText">
     <form id="confirmForm">
