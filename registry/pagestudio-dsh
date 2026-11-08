@@ -1,7 +1,7 @@
 {
   "name": "pagestudio-dsh",
   "dist-tags": {
-    "latest": "0.5.9"
+    "latest": "0.6.0"
   },
   "versions": {
     "0.5.0": {
@@ -534,12 +534,71 @@
         "shasum": "ed299dbca802abfb7ea73fded8e85f124d9d95ba",
         "integrity": "sha512-syobpakLr9dhaq0C3QOWumUZLOB2mvQiroQKa8WvRrg2sInHPTlw3f1bm6ahEB9GDShbCmZukNNE6nA0QhaKNQ=="
       }
+    },
+    "0.6.0": {
+      "name": "pagestudio-dsh",
+      "version": "0.6.0",
+      "type": "module",
+      "description": "浏览、导入和整理本地 HTML 知识卡片。",
+      "author": "Linguage",
+      "repository": {
+        "type": "git",
+        "url": "git+https://github.com/Linguage/pagestudio.git"
+      },
+      "homepage": "https://github.com/Linguage/pagestudio",
+      "keywords": [
+        "dsh-plugin",
+        "html",
+        "slides"
+      ],
+      "license": "MIT",
+      "main": "./lib/index.js",
+      "icon": "./icon.svg",
+      "exports": {
+        ".": "./lib/index.js",
+        "./client": "./lib/client.js",
+        "./package.json": "./package.json"
+      },
+      "files": [
+        "lib",
+        "web",
+        "vendor",
+        "skills",
+        "icon.svg",
+        "cordis.patch.yml",
+        "README.md"
+      ],
+      "engines": {
+        "node": ">=22.19",
+        "dsh": ">=0.2.2-rc.1 <0.3.0"
+      },
+      "dsh": {
+        "bundle": {
+          "patch": "./cordis.patch.yml"
+        },
+        "client": {
+          "platform": "web",
+          "inject": []
+        }
+      },
+      "scripts": {
+        "seed": "node scripts/seed.mjs",
+        "serve": "node scripts/serve.mjs",
+        "test": "node --test tests/*.test.mjs",
+        "test:host": "node scripts/check-host.mjs",
+        "package": "node scripts/package.mjs"
+      },
+      "dist": {
+        "tarball": "https://raw.githubusercontent.com/Linguage/pagestudio/distribution/pagestudio-dsh-0.6.0.tgz",
+        "shasum": "4655f8cf093fe3aee0f450582213fadccae4477c",
+        "integrity": "sha512-vFY68l6I+/PgiCs7fX8rEsve39aPx8wqAmjQZjKbaseR6pBUYnV6F4cbbnra7bFQbZfJcFfnJXzNLHoFdg1wzA=="
+      }
     }
   },
   "time": {
     "created": "2026-11-07T13:29:05.371Z",
     "0.5.0": "2026-11-07T13:29:05.371Z",
-    "modified": "2026-11-08T03:13:37.085Z",
+    "modified": "2026-11-08T09:11:22.037Z",
     "0.5.1": "2026-11-07T13:33:34.590Z",
     "0.5.2": "2026-11-07T13:40:44.136Z",
     "0.5.3": "2026-11-07T14:28:41.784Z",
@@ -547,6 +606,7 @@
     "0.5.5": "2026-11-07T16:42:55.283Z",
     "0.5.7": "2026-11-07T18:05:19.978Z",
     "0.5.8": "2026-11-08T03:01:26.084Z",
-    "0.5.9": "2026-11-08T03:13:37.085Z"
+    "0.5.9": "2026-11-08T03:13:37.085Z",
+    "0.6.0": "2026-11-08T09:11:22.037Z"
   }
 }
