@@ -7,7 +7,7 @@
   "repository": { "type": "git", "url": "git+https://github.com/Linguage/pagestudio.git" },
   "homepage": "https://github.com/Linguage/pagestudio",
   "keywords": ["dsh-plugin", "html", "slides"],
-  "license": "UNLICENSED",
+  "license": "MIT",
   "main": "./lib/index.js",
   "icon": "./icon.svg",
   "exports": { ".": "./lib/index.js", "./client": "./lib/client.js", "./package.json": "./package.json" },
