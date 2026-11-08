@@ -13,7 +13,7 @@
   <aside class="sidebar">
     <div class="sidebar-navigation">
       <a class="brand" href="./" aria-label="PageStudio 首页"><img class="logo" src="./icon.svg" alt=""><span>PageStudio<small>HTML 卡片库</small></span></a>
-      <div class="nav-label">资料库</div>
+      <div class="nav-label">资料库 <button id="manageCategories" class="edit" type="button" aria-haspopup="dialog">管理分类</button></div>
       <nav id="categories" aria-label="分类"></nav>
     </div>
     <div class="local">
@@ -99,7 +99,24 @@
       <label>分类<select id="editCategory"></select></label>
       <label>标签<input id="editTags" maxlength="250" placeholder="用逗号分隔，例如：Matlab，轮轨"></label>
       <p class="status" id="editStatus" role="status" hidden></p>
-      <div class="dialog-actions"><button type="button" class="secondary close">取消</button><button class="primary" type="submit">保存</button></div>
+      <div class="dialog-actions"><button type="button" id="deleteCard" class="secondary danger">删除卡片</button><button type="button" class="secondary close">取消</button><button class="primary" type="submit">保存</button></div>
+    </form>
+  </dialog>
+  <dialog id="categoryDialog" aria-labelledby="categoryTitle">
+    <div class="dialog-head"><h2 id="categoryTitle">管理分类</h2><button type="button" class="icon close" aria-label="关闭">×</button></div>
+    <form id="categoryForm">
+      <label>分类名称<input id="categoryName" maxlength="40" required></label>
+      <div class="dialog-actions"><button type="submit" class="primary">新建分类</button></div>
+    </form>
+    <p id="categoryStatus" class="status" role="status" hidden></p>
+    <ul id="categoryList" class="category-list" aria-label="已有分类"></ul>
+  </dialog>
+  <dialog id="confirmDialog" aria-labelledby="confirmTitle" aria-describedby="confirmText">
+    <form id="confirmForm">
+      <div class="dialog-head"><h2 id="confirmTitle"></h2></div>
+      <p id="confirmText"></p>
+      <p id="confirmStatus" class="status" role="status" hidden></p>
+      <div class="dialog-actions"><button type="button" class="secondary close" autofocus>取消</button><button id="confirmSubmit" type="submit" class="secondary danger"></button></div>
     </form>
   </dialog>
   <dialog id="storageDialog" aria-labelledby="storageTitle">
@@ -138,7 +155,7 @@
     </div>
     <div id="readerTabs" class="reader-tabs" role="tablist" aria-label="预览模式">
       <button type="button" id="renderTab" role="tab" aria-controls="renderPanel" aria-selected="true">HTML 渲染</button>
-      <button type="button" id="codeTab" role="tab" aria-controls="codePanel" aria-selected="false" tabindex="-1">代码预览</button>
+      <button type="button" id="codeTab" role="tab" aria-controls="codePanel" aria-selected="false" tabindex="-1">HTML 源码</button>
       <button type="button" id="textTab" role="tab" aria-controls="textPanel" aria-selected="false" tabindex="-1">纯内容文本</button>
       <button type="button" id="summaryTab" role="tab" aria-controls="summaryPanel" aria-selected="false" tabindex="-1">卡片摘要</button>
     </div>
@@ -146,7 +163,16 @@
     <div id="renderPanel" class="reader-panel" role="tabpanel" aria-labelledby="renderTab">
       <iframe id="frame" title="HTML 卡片正文" sandbox="allow-scripts" referrerpolicy="no-referrer"></iframe>
     </div>
-    <div id="codePanel" class="reader-panel reader-content" role="tabpanel" aria-labelledby="codeTab" tabindex="0" hidden><pre><code id="readerCode"></code></pre></div>
+    <div id="codePanel" class="reader-panel reader-content" role="tabpanel" aria-labelledby="codeTab" hidden>
+      <form id="sourceForm">
+        <textarea id="readerCode" aria-label="HTML 源码" spellcheck="false" wrap="off" disabled></textarea>
+        <div class="source-actions">
+          <p id="sourceStatus" class="status" role="status" hidden></p>
+          <button type="button" id="resetSource" class="secondary" disabled>还原草稿</button>
+          <button type="submit" id="saveSource" class="primary" disabled>保存源码</button>
+        </div>
+      </form>
+    </div>
     <div id="textPanel" class="reader-panel reader-content" role="tabpanel" aria-labelledby="textTab" tabindex="0" hidden><div id="readerText"></div></div>
     <div id="summaryPanel" class="reader-panel reader-content" role="tabpanel" aria-labelledby="summaryTab" hidden>
       <form id="summaryForm" class="summary-form">

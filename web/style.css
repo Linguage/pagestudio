@@ -133,7 +133,14 @@ dialog textarea{resize:vertical}
 .reader-panel{flex:1;min-height:0}
 .reader iframe{width:100%;height:100%;display:block;border:0;background:var(--panel)}
 .reader-content{overflow:auto;overscroll-behavior:contain;scrollbar-width:none;padding:clamp(14px,3vw,35px);background:var(--panel)}
-.reader-content pre{margin:0;font:13px/1.6 ui-monospace,SFMono-Regular,Consolas,monospace;tab-size:2}
+#sourceForm{height:100%;display:flex;flex-direction:column;gap:10px}
+#readerCode{flex:1;min-height:0;resize:none;font:13px/1.6 ui-monospace,SFMono-Regular,Consolas,monospace;tab-size:2}
+.source-actions{display:flex;justify-content:flex-end;align-items:center;flex-wrap:wrap;gap:8px}
+.source-actions .status{flex:1;margin:0}
+.nav-label:has(button){display:flex;align-items:center;justify-content:space-between}
+.category-list{list-style:none;margin:14px 0 0;padding:0}
+.category-list li{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:36px;border-top:1px solid var(--line);overflow-wrap:anywhere}
+.danger{color:var(--error)}
 #readerText{max-width:72ch;margin-inline:auto;white-space:pre-wrap;overflow-wrap:anywhere;font:16px/1.75 var(--sans);tab-size:4}
 .summary-form{max-width:680px;margin-inline:auto}
 .summary-heading{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:14px}

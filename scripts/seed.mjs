@@ -1,7 +1,7 @@
 import { readdir, readFile } from 'node:fs/promises';
 import { basename, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { CATEGORIES, createLibrary, FOLDERS, PENDING } from '../lib/library.mjs';
+import { createLibrary, FOLDERS, PENDING } from '../lib/library.mjs';
 import { extractMetadata, textContent } from '../lib/metadata.mjs';
 
 const root = resolve(process.argv[2] || fileURLToPath(new URL('../../', import.meta.url)));
@@ -13,7 +13,7 @@ for (const [, path, attributes, html] of navigation.matchAll(/<a\s+href="([^"]+\
   const label = [...html.matchAll(/<div\b[^>]*>([\s\S]*?)<\/div>/gi)].map(match => textContent(match[1])).filter(Boolean);
   if (label.length) labels.set(path, [...new Set(label)].join(' · '));
   const category = attributes.match(/\bdata-category="([^"]+)"/)?.[1];
-  if (CATEGORIES.includes(category)) categories.set(path, category);
+  if (category) categories.set(path, category);
 }
 const candidates = [];
 for (const dir of ['', 'cards', ...Object.keys(FOLDERS)]) {
@@ -32,11 +32,12 @@ const library = createLibrary();
 let added = 0;
 let duplicates = 0;
 try {
+  const available = new Set(library.categories());
   for (const { file, category } of candidates.sort((a, b) => a.file.localeCompare(b.file))) {
     const raw = await readFile(join(root, file));
     const metadata = extractMetadata(raw);
     if (labels.has(file)) metadata.title = labels.get(file);
-    const result = library.ingest(basename(file), raw, metadata, category);
+    const result = library.ingest(basename(file), raw, metadata, available.has(category) ? category : PENDING);
     if (result.duplicate) duplicates++;
     else added++;
   }

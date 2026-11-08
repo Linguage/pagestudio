@@ -9,7 +9,7 @@ const colors = {
 };
 let category = '', page = 1, state, editing, importing = false;
 let activeRequest, timer, dragDepth = 0;
-let readerItem, readerRequest;
+let readerItem, readerRequest, readerSource;
 let summaryEditor;
 const method = {pending:'待归类', auto:'自动归类', ai:'AI 归类', manual:'手工整理', archive:'原卡片库分类'};
 const chatChannel = 'dsh-html-cards-discussion';
@@ -41,8 +41,8 @@ function el(tag, name, text) {
   return node;
 }
 function tint(node, cat) {
+  if (!Object.hasOwn(colors, cat)) return;
   const palette = colors[cat];
-  if (!palette) return;
   const [dot, light, dark] = palette;
   node.style.setProperty('--tint', dot);
   node.style.setProperty('--chip', light);
@@ -180,6 +180,7 @@ async function refresh() {
     const result = await request('./api/cards?' + params, {signal:ctrl.signal});
     if (ctrl.signal.aborted) return;
     state = result;
+    if (category && !result.categories.includes(category)) return select('');
     if (page > 1 && !result.cards.length) {
       page = Math.max(1, Math.ceil(result.total / 30));
       await refresh();
@@ -224,7 +225,69 @@ function render() {
   $('pageLabel').textContent = page + ' / ' + last;
   $('prev').disabled = page === 1;
   $('next').disabled = page === last;
+  if ($('categoryDialog').open) renderCategoryList();
 }
+
+function confirmAction(title, description, label, action) {
+  $('confirmTitle').textContent = title;
+  $('confirmText').textContent = description;
+  $('confirmSubmit').textContent = label;
+  message('confirmStatus', '');
+  $('confirmForm').onsubmit = async event => {
+    event.preventDefault();
+    $('confirmSubmit').disabled = true;
+    try {
+      await action();
+      $('confirmDialog').close();
+    } catch (error) {
+      message('confirmStatus', error.message, true);
+    } finally {
+      $('confirmSubmit').disabled = false;
+    }
+  };
+  $('confirmDialog').showModal();
+}
+
+function renderCategoryList() {
+  $('categoryList').replaceChildren(...(state?.categories ?? []).map(name => {
+    const row = el('li', '', name);
+    if (name !== pending) {
+      const button = el('button', 'edit danger', '删除');
+      button.type = 'button';
+      button.setAttribute('aria-label', '删除分类 ' + name);
+      button.onclick = () => confirmAction('删除分类', '「' + name + '」中的卡片会移到「待归类」。', '删除分类', async () => {
+        const { moved } = await post('./api/categories', JSON.stringify({action: 'remove', name}), 'application/json');
+        if (category === name) { category = ''; page = 1; }
+        await refresh();
+        message('categoryStatus', '已删除分类' + (moved ? '，' + moved + ' 张卡片已移到「待归类」' : '') + '。');
+      });
+      row.append(button);
+    }
+    return row;
+  }));
+}
+$('manageCategories').onclick = () => {
+  $('categoryName').value = '';
+  message('categoryStatus', '');
+  renderCategoryList();
+  $('categoryDialog').showModal();
+  refresh();
+};
+$('categoryForm').onsubmit = async event => {
+  event.preventDefault();
+  const button = event.submitter;
+  button.disabled = true;
+  try {
+    const { name } = await post('./api/categories', JSON.stringify({action: 'add', name: $('categoryName').value}), 'application/json');
+    $('categoryName').value = '';
+    await refresh();
+    message('categoryStatus', '已新建「' + name + '」。');
+  } catch (error) {
+    message('categoryStatus', error.message, true);
+  } finally {
+    button.disabled = false;
+  }
+};
 function makeCard(item) {
   const card = el('article', 'card');
   tint(card, item.category);
@@ -274,12 +337,21 @@ function showReader(item) {
   $('readerZoom').textContent = '原始大小';
   $('readerTitle').textContent = item.title;
   $('download').href = './download/' + item.id;
-  $('source').hidden = !item.canonical;
-  if (item.canonical) $('source').href = item.canonical;
-  else $('source').removeAttribute('href');
-  $('frame').src = './reader/' + item.id + '?' + new URLSearchParams(activeAppearance());
+  renderSourceLink();
+  reloadReaderFrame();
   selectReaderTab(readerTabs[0]);
   $('reader').showModal();
+}
+function renderSourceLink() {
+  $('source').hidden = !readerItem.canonical;
+  if (readerItem.canonical) $('source').href = readerItem.canonical;
+  else $('source').removeAttribute('href');
+}
+function reloadReaderFrame() {
+  const params = new URLSearchParams(activeAppearance());
+  if (readerSource) params.set('v', readerSource.version);
+  $('frame').src = './reader/' + readerItem.id + '?' + params;
+  $('readerZoom').textContent = '原始大小';
 }
 function syncReaderTheme() {
   if (!readerItem) return;
@@ -357,7 +429,7 @@ function updateSummaryControls() {
   $('summaryText').setAttribute('aria-invalid', String(count > 140));
   $('copySummary').disabled = !draft.summary || disabled;
   $('pasteSummary').disabled = disabled;
-  $('saveSummary').disabled = !dirty || !draft.title || count > 140 || saving || conflict;
+  $('saveSummary').disabled = !dirty || !draft.title || !draft.category || count > 140 || saving || conflict;
   $('generateSummary').disabled = disabled || conflict || dirty;
   $('generateSummary').title = dirty ? '先保存当前编辑' : '在 AI 侧栏发送整理请求';
   $('reloadSummary').hidden = !conflict;
@@ -388,9 +460,15 @@ async function loadSummary(replace = false) {
         useSavedDetails(editor, saved);
         message('summaryStatus', previous ? '已载入最新卡片资料。' : '');
       }
-    } else if (JSON.stringify(saved.suggestion) !== JSON.stringify(previous.suggestion)) {
+    } else {
+      if (saved.categories.join('\0') !== previous.categories.join('\0')) {
+        const selected = $('summaryCategory').value;
+        $('summaryCategory').replaceChildren(...saved.categories.map(name => new Option(name, name)));
+        $('summaryCategory').value = selected;
+      }
+      const suggestionChanged = JSON.stringify(saved.suggestion) !== JSON.stringify(previous.suggestion);
       editor.saved = saved;
-      if (saved.suggestion && !editor.conflict) message('summaryStatus', 'AI 整理建议已就绪。');
+      if (suggestionChanged && saved.suggestion && !editor.conflict) message('summaryStatus', 'AI 整理建议已就绪。');
     }
     updateSummaryControls();
   } catch (error) {
@@ -493,19 +571,69 @@ function bodyText(source) {
 async function loadReaderSource() {
   const controller = new AbortController();
   readerRequest = controller;
-  $('readerCode').textContent = $('readerText').textContent = '正在读取…';
+  $('readerText').textContent = '正在读取…';
+  message('sourceStatus', '正在读取源码…');
   try {
     const response = await fetch('./file/' + readerItem.id, { signal: controller.signal });
-    if (!response.ok) throw Error('无法读取 HTML 原件');
+    const version = response.headers.get('etag')?.match(/^"([a-f0-9]{64})"$/)?.[1];
+    if (!response.ok || !version) throw Error('无法读取 HTML 源码');
     const source = await response.text();
     if (controller.signal.aborted) return;
-    $('readerCode').textContent = source;
+    $('readerCode').value = source;
+    readerSource = { version, saved: $('readerCode').value, saving: false };
     $('readerText').textContent = bodyText(source) || '没有可提取的正文。';
+    message('sourceStatus', '');
+    updateSourceControls();
   } catch (error) {
     if (controller.signal.aborted) return;
-    $('readerCode').textContent = $('readerText').textContent = '读取预览失败：' + error.message;
+    $('readerText').textContent = error.message;
+    message('sourceStatus', error.message, true);
     readerRequest = undefined;
   }
+}
+function sourceDirty() {
+  return readerSource && readerSource.saved !== $('readerCode').value;
+}
+function updateSourceControls() {
+  $('readerCode').disabled = !readerSource || readerSource.saving;
+  $('resetSource').disabled = $('readerCode').disabled || !sourceDirty();
+  $('saveSource').disabled = $('resetSource').disabled || !$('readerCode').value.trim();
+}
+$('readerCode').oninput = updateSourceControls;
+$('resetSource').onclick = () => {
+  $('readerCode').value = readerSource.saved;
+  message('sourceStatus', '');
+  updateSourceControls();
+};
+$('sourceForm').onsubmit = async event => {
+  event.preventDefault();
+  if ($('saveSource').disabled) return;
+  const editor = readerSource;
+  const value = $('readerCode').value;
+  editor.saving = true;
+  updateSourceControls();
+  try {
+    const saved = await post('./api/card/' + readerItem.id + '/source?' + new URLSearchParams({version: editor.version}), value, 'text/html; charset=utf-8');
+    editor.version = saved.version;
+    editor.saved = value;
+    readerItem.canonical = saved.canonical;
+    renderSourceLink();
+    reloadReaderFrame();
+    $('readerText').textContent = bodyText(value) || '没有可提取的正文。';
+    message('sourceStatus', '源码已保存，HTML 渲染和纯文本已更新。');
+    refresh();
+    if (summaryEditor?.saved) loadSummary();
+  } catch (error) {
+    message('sourceStatus', error.message, true);
+  } finally {
+    editor.saving = false;
+    updateSourceControls();
+  }
+};
+function closeReader() {
+  if (readerSource?.saving) return;
+  if (!sourceDirty()) return $('reader').close();
+  confirmAction('放弃源码修改？', '你还有未保存的 HTML 源码修改。', '放弃修改', () => $('reader').close());
 }
 $('readerZoom').onclick = () => {
   const button = $('readerZoom');
@@ -526,13 +654,28 @@ function showEditor(item) {
 $('reader').addEventListener('close', () => {
   $('frame').removeAttribute('src');
   readerRequest?.abort();
-  readerRequest = readerItem = undefined;
+  readerSource = readerRequest = readerItem = undefined;
   summaryEditor = undefined;
-  $('readerCode').textContent = $('readerText').textContent = '';
+  $('readerCode').value = $('readerText').textContent = '';
+  message('sourceStatus', '');
+  updateSourceControls();
   $('codePanel').scrollTop = $('textPanel').scrollTop = 0;
   $('codePanel').scrollLeft = 0;
 });
-for (const b of document.querySelectorAll('.close')) b.onclick = () => b.closest('dialog').close();
+$('reader').addEventListener('cancel', event => {
+  event.preventDefault();
+  closeReader();
+});
+for (const b of document.querySelectorAll('.close')) {
+  b.onclick = () => {
+    const dialog = b.closest('dialog');
+    if (dialog.id === 'reader') closeReader();
+    else if (dialog.id !== 'confirmDialog' || !$('confirmSubmit').disabled) dialog.close();
+  };
+}
+$('confirmDialog').addEventListener('cancel', event => {
+  if ($('confirmSubmit').disabled) event.preventDefault();
+});
 $('create').onclick = () => {
   $('createName').value = '';
   $('createCode').value = starterHtml;
@@ -577,6 +720,15 @@ $('editForm').onsubmit = async (event) => {
   } finally {
     b.disabled = false;
   }
+};
+$('deleteCard').onclick = () => {
+  const { id, title } = editing;
+  confirmAction('删除卡片', '「' + title + '」及其摘要将从当前资料库永久删除。', '删除卡片', async () => {
+    await post('./api/card/' + id + '/delete');
+    $('editor').close();
+    await refresh();
+    message('status', '已删除卡片。');
+  });
 };
 $('search').addEventListener('input', () => {
   clearTimeout(timer);

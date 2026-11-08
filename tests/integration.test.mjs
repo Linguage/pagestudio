@@ -142,6 +142,85 @@ async function request(handle, path, { method = 'GET', headers = {}, body = Buff
   return response;
 }
 
+test('source edits preserve card identity and details while keeping deduplication consistent', async t => {
+  const { library } = await workspace(t);
+  const original = Buffer.from('<title>原始标题</title><p>原始正文</p>');
+  const item = library.ingest('original.html', original, { title: '手动标题' }, '其他');
+  library.edit(item.id, { title: item.title, category: item.category, tags: ['资料'] });
+  library.saveSummary(item.id, '手动摘要', 0);
+  const old = library.details(item.id);
+  library.suggestDetails(item.id, { ...old, summary: '旧的建议' });
+  const handle = createHandler(library);
+  const read = await request(handle, '/file/' + item.id);
+  assert.equal(read.headers.etag, '"' + item.id + '"');
+  const headers = { 'x-html-cards': 'local', origin: 'dsh-app://app' };
+  const save = (version, source, extra = {}) => request(handle, '/api/card/' + item.id + '/source?version=' + version, {
+    method: 'POST', headers, body: Buffer.from(source), ...extra,
+  });
+  const revised = '<meta charset="gbk"><title>更改后的文档标题</title><p>更新后的正文</p>';
+  assert.equal((await save(item.id, revised, { headers: {} })).status, 403);
+  const result = await save(item.id, revised);
+  assert.equal(result.status, 200);
+  const { version } = JSON.parse(result.data);
+  assert.notEqual(version, item.id);
+  assert.equal((await request(handle, '/file/' + item.id)).data, revised);
+  assert.equal((await save(item.id, original)).status, 409);
+  assert.match(library.cardContext(item.id).excerpt, /更新后的正文/);
+  const updated = library.details(item.id);
+  assert.equal(updated.title, old.title);
+  assert.equal(updated.category, old.category);
+  assert.deepEqual(updated.tags, old.tags);
+  assert.equal(updated.summary, old.summary);
+  assert.equal(updated.suggestion, null);
+  assert.equal(library.saveSummary(item.id, '过时的摘要', old.revision), undefined);
+  assert.equal(library.ingest('same.html', Buffer.from(library.file(item.id).raw)).id, item.id);
+  assert.notEqual(library.ingest('old.html', original).id, item.id);
+  assert.equal((await save(version, original)).status, 409);
+  assert.equal((await request(handle, '/reader/' + item.id)).status, 200);
+});
+
+test('custom categories survive reopening and removing them preserves their cards', async t => {
+  const { library, directory } = await workspace(t);
+  const handle = createHandler(library);
+  const headers = { 'x-html-cards': 'local', origin: 'dsh-app://app' };
+  const change = (action, name) => request(handle, '/api/categories', {
+    method: 'POST', headers, body: Buffer.from(JSON.stringify({ action, name })),
+  });
+  assert.equal((await change('add', '项目资料')).status, 201);
+  assert.equal((await change('add', '项目资料')).status, 400);
+  assert.equal((await change('remove', '待归类')).status, 400);
+  const item = library.ingest('project.html', Buffer.from('<p>项目资料</p>'));
+  library.organize([{ id: item.id, category: '项目资料', tags: ['项目'] }]);
+  library.saveSummary(item.id, '项目摘要', 0);
+  assert.equal(library.list({ category: '项目资料' }).total, 1);
+  assert.deepEqual(JSON.parse((await change('remove', '项目资料')).data), { moved: 1 });
+  assert.equal((await change('remove', '其他')).status, 200);
+  assert.equal((await change('add', '私人笔记')).status, 201);
+  const reopened = createLibrary(directory);
+  try {
+    assert(reopened.categories().includes('私人笔记'));
+    assert(!reopened.categories().includes('其他'));
+    assert(!reopened.categories().includes('项目资料'));
+    assert.equal(reopened.pending().cards[0].id, item.id);
+    assert.equal(reopened.details(item.id).summary, '项目摘要');
+  } finally {
+    reopened.close();
+  }
+  library.suggestDetails(item.id, { ...library.details(item.id), summary: '建议摘要' });
+  const route = '/api/card/' + item.id + '/delete';
+  assert.equal((await request(handle, route, { method: 'POST' })).status, 403);
+  assert.equal((await request(handle, route, { method: 'POST', headers })).status, 200);
+  assert.equal((await request(handle, route, { method: 'POST', headers })).status, 404);
+  assert.equal(library.list().total, 0);
+  const database = new DatabaseSync(join(directory, 'library.sqlite'), { readOnly: true });
+  try {
+    assert.equal(database.prepare('SELECT count(*) AS count FROM card_summaries').get().count, 0);
+    assert.equal(database.prepare('SELECT count(*) AS count FROM card_suggestions').get().count, 0);
+  } finally {
+    database.close();
+  }
+});
+
 test('HTTP import guards writes, retains original bytes, and AI skips manual classification', async t => {
   const { directory, library } = await workspace(t);
   const handle = createHandler(library);
